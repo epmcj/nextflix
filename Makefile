@@ -1,9 +1,9 @@
-all: nextflix client
+all: client nextflix
 
 nextflix: nextflix.c server.o
 	gcc -pthread -o server server.o nextflix.c
 
-client:
+client: client.c
 	gcc -o client client.c
 
 server.o: server.c server.h

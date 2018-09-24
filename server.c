@@ -37,33 +37,43 @@ void server_listen(int port) {
             continue;
         }
 
+        sscanf(buffer, "%d-%d", &arg.cid, &arg.cport);
+        printf("id:%d port:%d\n", arg.cid, arg.cport);
+        arg.caddr = caddr;
+
+        if (!can_accept(arg.cid)) {
+            // Can not handle this client
+            printf("Server: can not handle client %d\n", arg.cid);
+            continue;
+        }
+/*
         thread = (pthread_t *) malloc(sizeof(pthread_t));
         if (!thread) {
             printf("Server: failed to allocate a new thread.\n");
             continue;
         }
 
-        // TEMP !!!
-        csocket   = atoi(buffer);
-        arg.cid   = csocket;
-        arg.caddr = caddr;
-
         if (pthread_create(thread, NULL, handle_client, (void *) &arg) != 0) {
             printf("Server: failed to create a new thread.\n");
             continue;
         }
+*/
     }
 }
 
 void* handle_client(void* argument) {
+    char buffer[BUFFER_LEN];
     int csocket, portNum;
-    struct sockaddr_in saddr;
+    struct sockaddr_in saddr, caddr;
     time_t itime, etime;
 
     pthread_arg* arg = (pthread_arg*) argument;
-    
-    itime = time(NULL);
-    etime = itime + 10;
+
+    csocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (csocket == 0) { 
+        printf("Server: failed to create socket.\n"); 
+        exit(EXIT_FAILURE); 
+    }
 
     // finding an open port
     memset(&saddr, 0, sizeof(saddr));
@@ -75,12 +85,20 @@ void* handle_client(void* argument) {
         if (bind(csocket, (struct sockaddr *) &saddr, sizeof(saddr)) < 0) {
             portNum = 0;
         }
-    } while (portNum != 0);
+        // printf("trying again...\n");
+    } while (portNum == 0);
 
-    printf("Server: client %d is connected at port %d\n.", arg->cid, portNum);
+    printf("Server: client %d is connected at port %d.\n", arg->cid, portNum);
 
     // Send message to client
+    sprintf(buffer, "%d", portNum);
+    if (sendto(csocket, buffer, strlen(buffer), 0, 
+        (struct sockaddr *) &arg->caddr, sizeof(arg->caddr)) < 0) {
+        printf("Server: failed to send data to client.\n");
+        exit(EXIT_FAILURE);
+    } 
+}
 
-
-    printf(" id: %d, end: %d\n", arg->cid, etime);
+int can_accept(int cid) {
+    return 1;
 }

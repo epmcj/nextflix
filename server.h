@@ -18,6 +18,7 @@
  */
 typedef struct {
     int cid;    // Client id
+    int cport;
     struct sockaddr_in caddr;
 } pthread_arg;
 
@@ -30,5 +31,10 @@ void server_listen(int port);
  * 
  **/
 void* handle_client(void* arg);
+
+/**
+ * 
+ **/
+int can_accept(int cid);
 
 #endif
