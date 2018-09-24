@@ -9,6 +9,8 @@ void server_listen(int port) {
     char buffer[BUFFER_LEN];
 
     addrlen = (socklen_t) sizeof(saddr);
+    
+    srand(time(NULL));
 
     ssocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (ssocket == 0) { 
@@ -42,8 +44,9 @@ void server_listen(int port) {
         }
 
         // TEMP !!!
-        csocket = atoi(buffer);
-        arg.csocket = csocket;
+        csocket   = atoi(buffer);
+        arg.cid   = csocket;
+        arg.caddr = caddr;
 
         if (pthread_create(thread, NULL, handle_client, (void *) &arg) != 0) {
             printf("Server: failed to create a new thread.\n");
@@ -53,6 +56,8 @@ void server_listen(int port) {
 }
 
 void* handle_client(void* argument) {
+    int csocket, portNum;
+    struct sockaddr_in saddr;
     time_t itime, etime;
 
     pthread_arg* arg = (pthread_arg*) argument;
@@ -60,9 +65,22 @@ void* handle_client(void* argument) {
     itime = time(NULL);
     etime = itime + 10;
 
-    printf("New client:\n id: %d, begin: %d\n", arg->csocket, itime);
-    
-    while(time(NULL) < etime);
+    // finding an open port
+    memset(&saddr, 0, sizeof(saddr));
+    saddr.sin_family      = AF_INET;
+    saddr.sin_addr.s_addr = INADDR_ANY;
+    do {
+        portNum = 50000 + (rand() % 10000);
+        saddr.sin_port = htons(portNum);
+        if (bind(csocket, (struct sockaddr *) &saddr, sizeof(saddr)) < 0) {
+            portNum = 0;
+        }
+    } while (portNum != 0);
 
-    printf(" id: %d, end: %d\n", arg->csocket, etime);
+    printf("Server: client %d is connected at port %d\n.", arg->cid, portNum);
+
+    // Send message to client
+
+
+    printf(" id: %d, end: %d\n", arg->cid, etime);
 }

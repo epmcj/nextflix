@@ -41,7 +41,7 @@ int main(int argc, char const *argv[]) {
     sprintf(msg, "%d\0", id);
 
     if (sendto(csocket, msg, strlen(msg), 0, (struct sockaddr *) &address, 
-        sizeof(address)) == -1) {
+        sizeof(address)) < 0) {
         printf("Client: failed to send data to server.\n");
         exit(EXIT_FAILURE);
     }    

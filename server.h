@@ -17,7 +17,8 @@
  * 
  */
 typedef struct {
-    int csocket;    // Client socket
+    int cid;    // Client id
+    struct sockaddr_in caddr;
 } pthread_arg;
 
 /**
