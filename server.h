@@ -1,5 +1,5 @@
-#ifndef __SERVER_MOD_H__
-#define __SERVER_MOD_H__
+#ifndef __SERVER_H__
+#define __SERVER_H__
 
 #include <time.h>
 #include <stdio.h>
@@ -9,6 +9,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include "socket_sup.h"
 
 #define MAX_CONNECTIONS 5
 #define BUFFER_LEN 512
@@ -18,9 +19,8 @@
  */
 typedef struct {
     int cid;    // Client id
-    int cport;
     struct sockaddr_in caddr;
-} pthread_arg;
+} cinfo_t;
 
 /**
  * 
