@@ -7,15 +7,16 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include "socket_sup.h"
+#include "tools.h"
 // #include <arpa/inet.h>
 
 #define BUFFER_LEN 512
 
 int main(int argc, char const *argv[]) {
     socklen_t addrlen;
-    int sockt, sport, cport, id;
+    int sockt, sport, cport, id, rport, rcvd;
     char serverAddr[16];
-    char buffer[BUFFER_LEN];
+    unsigned char buffer[BUFFER_LEN];
     struct sockaddr_in saddr, caddr;
 
     if (argc < 3) {
@@ -44,22 +45,29 @@ int main(int argc, char const *argv[]) {
 
     // sending hello message
     id = 123456;
-    sprintf(buffer, "%d", id);
-
-    if (sendto(sockt, buffer, strlen(buffer), 0, (struct sockaddr *) &saddr, 
+    int_to_4chars(id, buffer);
+    if (sendto(sockt, buffer, 5, 0, (struct sockaddr *) &saddr, 
         sizeof(saddr)) < 0) {
         printf("Client: failed to send data to server.\n");
         exit(EXIT_FAILURE);
     }
 
-    if (recvfrom(sockt, buffer, BUFFER_LEN, 0, (struct sockaddr *) &saddr, 
-        &addrlen) == -1) {
+    rcvd = recvfrom(sockt, buffer, BUFFER_LEN, 0, (struct sockaddr *) &saddr, 
+                    &addrlen);
+    if (rcvd == -1) {
         printf("Client: failed to receive answer from server.\n");
         exit(EXIT_FAILURE);
-    }  
+    }  else {
+        printf("Client: recevied %d bytes from server.\n", rcvd);
+    }
 
-    id = atoi(buffer);
-    printf("port: %d\n", id); 
+    rport = chars_to_int(buffer);
+    if (rport < 0) {
+        printf("Client: connection denied.\n");
+        exit(EXIT_FAILURE);
+
+    }
+    printf("Client: should connect to port %d\n", rport);
     
     return 0;
 }

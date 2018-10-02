@@ -3,8 +3,8 @@
 
 #include <stdlib.h>
 
-void int_to_chars(unsigned int n, char* buffer);
+void int_to_4chars(int n, unsigned char* buffer);
 
-unsigned int chars_to_int(char* buffer);
+int chars_to_int(unsigned char* buffer);
 
 #endif

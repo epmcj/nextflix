@@ -5,7 +5,7 @@ void server_listen(int port) {
     cinfo_t info;
     socklen_t addrlen;
     pthread_t* thread;
-    char buffer[BUFFER_LEN];
+    unsigned char buffer[BUFFER_LEN];
     struct sockaddr_in saddr, caddr;
 
     srand(time(NULL));
@@ -26,13 +26,21 @@ void server_listen(int port) {
             continue;
         }
 
-        sscanf(buffer, "%d", &info.cid);
+        info.cid = chars_to_int(buffer);
         printf("id:%d\n", info.cid);
         info.caddr = caddr;
 
         if (!can_accept(info.cid)) {
-            // Can not handle this client
+            // can not handle this client
             printf("Server: can not handle client %d\n", info.cid);
+            // sending answer to client.
+            int_to_4chars(-1, buffer);
+            buffer[4] = 0;
+            if (sendto(sockt, buffer, 5, 0, 
+                (struct sockaddr *) &caddr, sizeof(caddr)) < 0) {
+                printf("Server: failed to send answer to client.\n");
+                exit(EXIT_FAILURE);
+            } 
             continue;
         }
 
@@ -46,7 +54,6 @@ void server_listen(int port) {
             printf("Server: failed to create a new thread.\n");
             continue;
         }
-
     }
 }
 
@@ -54,6 +61,7 @@ void* handle_client(void* argument) {
     char buffer[BUFFER_LEN];
     int csocket, port, addrlen, rcvd;
     struct sockaddr_in saddr, caddr;
+    struct timeval tv;
 
     cinfo_t* info = (cinfo_t*) argument;
 
@@ -61,6 +69,13 @@ void* handle_client(void* argument) {
     if (csocket == 0) { 
         printf("Server: failed to create socket.\n"); 
         exit(EXIT_FAILURE); 
+    }
+
+    tv.tv_sec  = TIMEOUT_S;
+    tv.tv_usec = 0;
+    if (setsockopt(csocket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
+        printf("Server: could not set socket timeout.\n");
+        exit(EXIT_FAILURE);
     }
 
     // finding an available port
@@ -80,8 +95,8 @@ void* handle_client(void* argument) {
     caddr = info->caddr;
 
     // sending confirmation message to client
-    sprintf(buffer, "%d", port);
-    if (sendto(csocket, buffer, strlen(buffer), 0, 
+    int_to_4chars(port, buffer);
+    if (sendto(csocket, buffer, 5, 0, 
         (struct sockaddr *) &caddr, sizeof(caddr)) < 0) {
         printf("Server: failed to send data to client.\n");
         exit(EXIT_FAILURE);
@@ -92,11 +107,21 @@ void* handle_client(void* argument) {
         if ((rcvd = recvfrom(csocket, buffer, BUFFER_LEN, 0, 
              (struct sockaddr *) &caddr, &addrlen)) == -1) {
             printf("Server: failed to receive data from new client.\n");
-            continue;
+            break;
         }
     }
 }
 
 int can_accept(int cid) {
     return 1;
+    // return ((rand() % 2) == 0);
+}
+
+int proccess_cmd(int actionID) {
+
+    return 0;
+}
+
+int send_movie(int movieID) {
+    return 0;
 }
