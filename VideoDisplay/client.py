@@ -5,7 +5,6 @@ import videoBuff as vb
 
 #producer
 def getFrames(vidcap,buff):
-	i = 0;
 	while True:
 		
 		#if the other thread wants to quit
@@ -15,22 +14,19 @@ def getFrames(vidcap,buff):
 		#only in order to not break buffer's limit
 		if not buff.isFull():
 			#read the next frame
-			#vidcap.set(cv2.cv.CV_CAP_PROP_POS_FRAMES, i)
 			success,frame = vidcap.read()
-			i = i+1
 			
 			#if there is a new frame
 			if success:
 				#insert it in the buffer
 				buff.write(frame)
 			else:
-				#quit
-				buff.end()
+				#wait the buffer to be consumed and quit
+				buff.finished = True
 				break
 
 #consumer
 def showFrames(height,width,buff,frameRate):
-	cv2.namedWindow("Nextflix")
 	
 	while True:
 		
@@ -53,10 +49,8 @@ def showFrames(height,width,buff,frameRate):
 		#wait until the next frame
 		if cv2.waitKey(int(1000/frameRate)) != -1:
 			#if the user pressed a key, quit
-			buff.end()
+			buff.quit = True
 			break
-	
-	cv2.destroyWindow("Nextflix")
 
 def main():
 	
@@ -71,6 +65,8 @@ def main():
 	#create the buffer
 	buff = vb.Buff(10000)
 	
+	cv2.namedWindow("Nextflix")	
+	
 	try:
 	   thread.start_new_thread(getFrames, (vidcap,buff))
 	   thread.start_new_thread(showFrames, (height,width,buff,frameRate))
@@ -78,6 +74,9 @@ def main():
 	   print "Error: unable to start threads"
 	
 	while buff.getCode()!=-1:
-		pass	
+		pass
+	
+	cv2.destroyWindow("Nextflix")
+	vidcap.release()	
 
 main()
