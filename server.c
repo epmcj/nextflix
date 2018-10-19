@@ -122,6 +122,31 @@ int proccess_cmd(int actionID) {
     return 0;
 }
 
-int send_movie(int movieID) {
+int send_video(int videoID) {
     return 0;
+}
+
+
+int get_video_list(vlist_t *videoList) {
+    int i;
+    FILE *fp;
+
+    fp = fopen(VIDEO_LIST_PATH, "r");
+    if (fp == NULL) {
+        printf("Server: video list file not found.\n");
+        return 1;
+    }
+
+    fscanf(fp, "%d", &videoList->length);
+    videoList->list = (int *) malloc(videoList->length * sizeof(int));
+    if (videoList->list == NULL) {
+        printf("Server: memory could not be allocated.\n");
+        return 1;
+    }
+
+    // reading file and preparing the video list
+    // each line is composed by "id;movie_title"
+    for (i = 0; i < videoList->length; i++) {
+        fscanf(fp, "%d;%*s", &videoList->list[i]);
+    }
 }

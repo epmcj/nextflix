@@ -16,6 +16,7 @@
 #define MAX_CONNECTIONS 5
 #define TIMEOUT_S 50
 #define BUFFER_LEN 512
+#define VIDEO_LIST_PATH "./video/list.txt"
 
 /**
  * 
@@ -24,6 +25,11 @@ typedef struct {
     int cid;    // Client id
     struct sockaddr_in caddr;
 } cinfo_t;
+
+typedef struct {
+    int length;
+    int  *list; 
+} vlist_t;
 
 /**
  * 
@@ -48,6 +54,11 @@ int proccess_cmd(int actionID);
 /**
  * 
  **/
-int send_movie(int movieID);
+int send_video(int videoID);
+
+/**
+ * 
+ */ 
+int get_video_list(vlist_t *videoList);
 
 #endif
