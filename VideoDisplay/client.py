@@ -15,7 +15,7 @@ def getFrames(vidcap,buff):
 		#only in order to not break buffer's limit
 		if not buff.isFull():
 			#read the next frame
-			vidcap.set(cv2.cv.CV_CAP_PROP_POS_FRAMES, i)
+			#vidcap.set(cv2.cv.CV_CAP_PROP_POS_FRAMES, i)
 			success,frame = vidcap.read()
 			i = i+1
 			
@@ -69,7 +69,7 @@ def main():
 	frameRate = vidcap.get(cv2.cv.CV_CAP_PROP_FPS)
 	
 	#create the buffer
-	buff = vb.Buff(100)
+	buff = vb.Buff(10000)
 	
 	try:
 	   thread.start_new_thread(getFrames, (vidcap,buff))
