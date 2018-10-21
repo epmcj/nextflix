@@ -12,17 +12,23 @@
 #include <netinet/in.h>
 #include "socket_sup.h"
 #include "tools.h"
+#include "video.h"
 
 #define MAX_CONNECTIONS 5
 #define TIMEOUT_S 50
 #define BUFFER_LEN 512
 #define VIDEO_LIST_PATH "./video/list.txt"
 
+#define LIST_CODE 7673 
+#define PLAY_CODE 8076
+#define EXIT_CODE 9999
+
 /**
  * 
  */
 typedef struct {
-    int cid;    // Client id
+    int                   id;
+    int                sockt;
     struct sockaddr_in caddr;
 } cinfo_t;
 
@@ -54,11 +60,11 @@ int proccess_cmd(int actionID);
 /**
  * 
  **/
-int send_video(int videoID);
+int send_video(cinfo_t* client, int videoID);
 
 /**
  * 
  */ 
-int get_video_list(vlist_t *videoList);
+int send_video_list(cinfo_t* client);
 
 #endif

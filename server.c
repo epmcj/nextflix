@@ -26,13 +26,13 @@ void server_listen(int port) {
             continue;
         }
 
-        info.cid = chars_to_int(buffer);
-        printf("id:%d\n", info.cid);
+        info.id = chars_to_int(buffer);
+        printf("id:%d\n", info.id);
         info.caddr = caddr;
 
-        if (!can_accept(info.cid)) {
+        if (!can_accept(info.id)) {
             // can not handle this client
-            printf("Server: can not handle client %d\n", info.cid);
+            printf("Server: can not handle client %d\n", info.id);
             // sending answer to client.
             int_to_4chars(-1, buffer);
             buffer[4] = 0;
@@ -59,21 +59,22 @@ void server_listen(int port) {
 
 void* handle_client(void* argument) {
     char buffer[BUFFER_LEN];
-    int csocket, port, addrlen, rcvd;
-    struct sockaddr_in saddr, caddr;
+    int port, addrlen, rcvd, cmdID, videoID;
+    struct sockaddr_in saddr;
     struct timeval tv;
 
-    cinfo_t* info = (cinfo_t*) argument;
+    cinfo_t* client = (cinfo_t*) argument;
 
-    csocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (csocket == 0) { 
+    client->sockt = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (client->sockt == 0) { 
         printf("Server: failed to create socket.\n"); 
         exit(EXIT_FAILURE); 
     }
 
     tv.tv_sec  = TIMEOUT_S;
     tv.tv_usec = 0;
-    if (setsockopt(csocket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
+    if (setsockopt(client->sockt, SOL_SOCKET, SO_RCVTIMEO, &tv, 
+        sizeof(tv)) < 0) {
         printf("Server: could not set socket timeout.\n");
         exit(EXIT_FAILURE);
     }
@@ -85,29 +86,47 @@ void* handle_client(void* argument) {
     do {
         port = 50000 + (rand() % 10000);
         saddr.sin_port = htons(port);
-        if (bind(csocket, (struct sockaddr *) &saddr, sizeof(saddr)) < 0) {
+        if (bind(client->sockt, (struct sockaddr *) &saddr, 
+            sizeof(saddr)) < 0) {
             port = 0;
         }
     } while (port == 0);
-
-    printf("Server: client %d is connected at port %d.\n", info->cid, port);
-
-    caddr = info->caddr;
+    printf("Server: client %d is connected at port %d.\n", client->id, port);
 
     // sending confirmation message to client
     int_to_4chars(port, buffer);
-    if (sendto(csocket, buffer, 5, 0, 
-        (struct sockaddr *) &caddr, sizeof(caddr)) < 0) {
+    if (sendto(client->sockt, buffer, 4, 0, (struct sockaddr *) &client->caddr, 
+        sizeof(client->caddr)) < 0) {
         printf("Server: failed to send data to client.\n");
         exit(EXIT_FAILURE);
     } 
 
     // 
     while (1) {
-        if ((rcvd = recvfrom(csocket, buffer, BUFFER_LEN, 0, 
-             (struct sockaddr *) &caddr, &addrlen)) == -1) {
+        if ((rcvd = recvfrom(client->sockt, buffer, BUFFER_LEN, 0, 
+             (struct sockaddr *) &client->caddr, &addrlen)) == -1) {
             printf("Server: failed to receive data from new client.\n");
             break;
+        }
+
+        cmdID = chars_to_int(buffer);
+        if (cmdID == LIST_CODE) {
+            printf("Server: list cmd received from client %d.\n", client->id);
+            if (send_video_list(client)) {
+                printf("Server: Failed to send list of videos.\n");
+                break;
+            }
+
+        } else if (cmdID == PLAY_CODE) {
+            videoID = chars_to_int(&buffer[4]);
+            send_video(client, videoID);
+
+        } else if (cmdID == EXIT_CODE) {
+            printf("Server: Client %d leave.\n", client->id);
+            break;
+        
+        } else {
+            printf("Server: Unknown command from client %d.\n", client->id);
         }
     }
 }
@@ -117,18 +136,57 @@ int can_accept(int cid) {
     // return ((rand() % 2) == 0);
 }
 
-int proccess_cmd(int actionID) {
+void get_video_path(int videoID, char* path) {
+    char buffer[BUFFER_LEN];
+    int i, vid, numVideos;
+    FILE *fp;
+
+    fp = fopen(VIDEO_LIST_PATH, "r");
+    if (fp == NULL) {
+        printf("Server: video list file not found.\n");
+        return;
+    }
+
+    // reading the number of available videos
+    fgets(buffer, BUFFER_LEN, fp);
+    sscanf(buffer, "%d", &numVideos);
+    for (i = 0; i < numVideos; i++) {
+        fgets(buffer, BUFFER_LEN, fp);
+        sscanf(buffer, "%d", &vid);
+        if (vid == videoID) {
+            sscanf(buffer, "%*d;%*[^;];%s", path);
+            break;
+        }
+    }
+
+    fclose(fp);
+}
+
+int send_video(cinfo_t* client, int videoID) {
+    char buffer[BUFFER_LEN];
+    video_metadata_t vinfo;
+    FILE *fp;
+
+    buffer[0] = 0;
+    get_video_path(videoID, buffer);
+    if (buffer[0] == 0) {
+        printf("Server: video %d could not be found.\n", videoID);
+    }
+    printf("video file can be found at: %s\n", buffer);
+    // fp = fopen(buffer, "r");
+    // if (fp == NULL) {
+    //     printf("Server: video file not found.\n");
+    //     return 1;
+    // }
+
+    // get_video_metadata(fp, &vinfo);
 
     return 0;
 }
 
-int send_video(int videoID) {
-    return 0;
-}
-
-
-int get_video_list(vlist_t *videoList) {
-    int i;
+int send_video_list(cinfo_t* client) {
+    int i, msgSize, vid, numVideos;
+    char buffer[BUFFER_LEN];
     FILE *fp;
 
     fp = fopen(VIDEO_LIST_PATH, "r");
@@ -137,16 +195,31 @@ int get_video_list(vlist_t *videoList) {
         return 1;
     }
 
-    fscanf(fp, "%d", &videoList->length);
-    videoList->list = (int *) malloc(videoList->length * sizeof(int));
-    if (videoList->list == NULL) {
-        printf("Server: memory could not be allocated.\n");
+    fgets(buffer, BUFFER_LEN, fp);
+    sscanf(buffer, "%d", &numVideos);
+    int_to_4chars(numVideos, buffer);
+    if (sendto(client->sockt, buffer, 4, 0, (struct sockaddr *) &client->caddr, 
+        sizeof(client->caddr)) < 0) {
+        printf("Server: failed to send data to client.\n");
+        fclose(fp);
         return 1;
-    }
+    } 
 
     // reading file and preparing the video list
-    // each line is composed by "id;movie_title"
-    for (i = 0; i < videoList->length; i++) {
-        fscanf(fp, "%d;%*s", &videoList->list[i]);
+    // each line is composed by "id;video title;video_path"
+    for (i = 0; i < numVideos; i++) {
+        fgets(buffer, BUFFER_LEN, fp);
+        sscanf(buffer, "%d;%[^;]s;%*s", &vid, &buffer[4]);
+        int_to_4chars(vid, buffer);
+        msgSize = 4 + strlen(&buffer[4]); // 4 bytes for the vid
+        if (sendto(client->sockt, buffer, msgSize, 0, 
+            (struct sockaddr *) &client->caddr, 
+            sizeof(client->caddr)) < 0) {
+            printf("Server: failed to send data to client.\n");
+            fclose(fp);
+            return 1;
+        }
     }
+    fclose(fp);
+    return 0;
 }
