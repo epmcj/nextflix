@@ -163,23 +163,96 @@ void get_video_path(int videoID, char* path) {
 }
 
 int send_video(cinfo_t* client, int videoID) {
-    char buffer[BUFFER_LEN];
+    char fpath[BUFFER_LEN];
+    int i, *nextMsg;
+    uint32_t seqNum;
     video_metadata_t vinfo;
+    segment_t *buffer;
+    message_t msg;
+    clock_t currTime, segDeadline, **ttable;
     FILE *fp;
 
-    buffer[0] = 0;
-    get_video_path(videoID, buffer);
-    if (buffer[0] == 0) {
+    fpath[0] = 0;
+    get_video_path(videoID, fpath);
+    if (fpath[0] == 0) {
         printf("Server: video %d could not be found.\n", videoID);
     }
-    printf("video file can be found at: %s\n", buffer);
-    // fp = fopen(buffer, "r");
-    // if (fp == NULL) {
-    //     printf("Server: video file not found.\n");
-    //     return 1;
-    // }
+    
+    fp = fopen(fpath, "r");
+    if (fp == NULL) {
+        printf("Server: video file not found.\n");
+        return 1;
+    }
 
-    // get_video_metadata(fp, &vinfo);
+    get_video_metadata(fp, &vinfo);
+
+    nextMsg = (int *) malloc(vinfo.n_cat * sizeof(int));
+    if (nextMsg == NULL) {
+        printf("Server: no memory.\n");
+        return 1;
+    }
+
+    // creating time table (columns: [Release Time, Deadline, Increment])
+    ttable = (clock_t**) malloc(3 * sizeof(clock_t *));
+    if (ttable == NULL) {
+        printf("Server: no memory for the time table.\n");
+        return 1;
+    }
+
+    for (i = 0; i < 3; i++) {
+        ttable[i] = (clock_t*) malloc(vinfo.n_cat * sizeof(clock_t));
+        if (ttable[i] == NULL) {
+            printf("Server: no memory for the time table.\n");
+            return 1;
+        }
+    }
+
+    // filling the increments (they are fixed for a video)
+    for (i = 0; i < vinfo.n_cat; i++) {
+        ttable[2][i] = (HYPER_PERIOD * CLOCKS_PER_SEC) / vinfo.cat[i].n_msgs;
+    }
+
+    // first sequence number must be random to avoid problems
+    seqNum = rand();
+
+    // sending loop
+    while (loag_segment(fp, buffer) != 1) {
+        // time table round initialization
+        for (i = 0; i < vinfo.n_cat; i++) {
+            nextMsg[0]   = 0;
+            ttable[0][i] = clock();
+            ttable[1][i] = ttable[0][i] + ttable[2][i];
+        }
+
+        segDeadline = clock() + (HYPER_PERIOD * CLOCKS_PER_SEC);
+        while((currTime = clock()) < segDeadline) {
+            for (i = 0; i < vinfo.n_cat; i++) {
+                if (currTime > ttable[1][i]) {
+                    // missed the deadline
+                    nextMsg[i]++;
+                    if (nextMsg[i] < buffer->cats[i].n_msgs) {
+                        ttable[0][i] = ttable[1][i] + 1;
+                        ttable[1][i] = ttable[1][i] + ttable[2][i];
+                    } else {
+                        ttable[0][i] = segDeadline;
+                        ttable[1][i] = segDeadline;
+                    }
+                } else if (currTime > ttable[0][i]) {
+                    // can send this message
+                    msg = buffer->cats[i].msgs[nextMsg[i]];
+                    // MUST SEND THE MESSAGE
+                    nextMsg[i]++;
+                    if (nextMsg[i] < buffer->cats[i].n_msgs) {
+                        ttable[0][i] = ttable[1][i] + 1;
+                        ttable[1][i] = ttable[1][i] + ttable[2][i];
+                    } else {
+                        ttable[0][i] = segDeadline;
+                        ttable[1][i] = segDeadline;
+                    }
+                }
+            }
+        }
+    }
 
     return 0;
 }

@@ -4,6 +4,7 @@
 #include <sys/time.h>
 #include <time.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
@@ -15,8 +16,9 @@
 #include "video.h"
 
 #define MAX_CONNECTIONS 5
-#define TIMEOUT_S 50
-#define BUFFER_LEN 512
+#define HYPER_PERIOD    4 // seconds
+#define TIMEOUT_S       50
+#define BUFFER_LEN      512
 #define VIDEO_LIST_PATH "./video/list.txt"
 
 #define LIST_CODE 7673 
@@ -61,6 +63,11 @@ int proccess_cmd(int actionID);
  * 
  **/
 int send_video(cinfo_t* client, int videoID);
+
+/**
+ * 
+ **/
+int send_message(message_t msg, uint32_t seqNum);
 
 /**
  * 
