@@ -17,7 +17,7 @@
 
 #define MAX_CONNECTIONS 5
 #define HYPER_PERIOD    4 // seconds
-#define TIMEOUT_S       50
+#define TIMEOUT_S       60
 #define BUFFER_LEN      512
 #define VIDEO_LIST_PATH "./video/list.txt"
 
@@ -25,12 +25,15 @@
 #define PLAY_CODE 8076
 #define EXIT_CODE 9999
 
+#define DEBUG_MODE 1
+
 /**
  * 
  */
 typedef struct {
     int                   id;
-    int                sockt;
+    int           ctrl_sockt;
+    int           data_sockt;
     struct sockaddr_in caddr;
 } cinfo_t;
 

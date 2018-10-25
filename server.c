@@ -3,7 +3,7 @@
 void server_listen(int port) {
     int sockt;
     cinfo_t info;
-    socklen_t addrlen;
+    socklen_t addrLen;
     pthread_t* thread;
     unsigned char buffer[BUFFER_LEN];
     struct sockaddr_in saddr, caddr;
@@ -13,32 +13,44 @@ void server_listen(int port) {
     // creating socket to receive solicitations from clients
     sockt = create_and_bind_socket(port);
     if (sockt == 0) { 
+        #if DEBUG_MODE
         printf("Server: failed to create socket.\n"); 
+        #endif
         exit(EXIT_FAILURE); 
     }
 
     while (1) {
+        #if DEBUG_MODE
         printf("Server: Waiting for new client.\n");
+        #endif
 
         if (recvfrom(sockt, buffer, BUFFER_LEN, 0, 
-            (struct sockaddr *) &caddr, &addrlen) == -1) {
+            (struct sockaddr *) &caddr, &addrLen) == -1) {
+            #if DEBUG_MODE
             printf("Server: failed to receive data from new client.\n");
+            #endif
             continue;
         }
 
         info.id = chars_to_int(buffer);
+        #if DEBUG_MODE
         printf("id:%d\n", info.id);
+        #endif
         info.caddr = caddr;
 
         if (!can_accept(info.id)) {
             // can not handle this client
+            #if DEBUG_MODE
             printf("Server: can not handle client %d\n", info.id);
+            #endif
             // sending answer to client.
             int_to_4chars(-1, buffer);
             buffer[4] = 0;
             if (sendto(sockt, buffer, 5, 0, 
                 (struct sockaddr *) &caddr, sizeof(caddr)) < 0) {
+                #if DEBUG_MODE
                 printf("Server: failed to send answer to client.\n");
+                #endif
                 exit(EXIT_FAILURE);
             } 
             continue;
@@ -46,12 +58,16 @@ void server_listen(int port) {
 
         thread = (pthread_t *) malloc(sizeof(pthread_t));
         if (!thread) {
+            #if DEBUG_MODE
             printf("Server: failed to allocate a new thread.\n");
+            #endif
             continue;
         }
 
         if (pthread_create(thread, NULL, handle_client, (void *) &info) != 0) {
+            #if DEBUG_MODE
             printf("Server: failed to create a new thread.\n");
+            #endif
             continue;
         }
     }
@@ -59,23 +75,35 @@ void server_listen(int port) {
 
 void* handle_client(void* argument) {
     char buffer[BUFFER_LEN];
-    int port, addrlen, rcvd, cmdID, videoID;
+    int ctrlPort, dataPort, addrLen, rcvd, cmdID, videoID;
     struct sockaddr_in saddr;
     struct timeval tv;
 
     cinfo_t* client = (cinfo_t*) argument;
 
-    client->sockt = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (client->sockt == 0) { 
-        printf("Server: failed to create socket.\n"); 
+    client->ctrl_sockt = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (client->ctrl_sockt == 0) { 
+        #if DEBUG_MODE
+        printf("Server: failed to create control socket.\n"); 
+        #endif
+        exit(EXIT_FAILURE); 
+    }
+    
+    client->data_sockt = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (client->data_sockt == 0) { 
+        #if DEBUG_MODE
+        printf("Server: failed to create data socket.\n"); 
+        #endif
         exit(EXIT_FAILURE); 
     }
 
     tv.tv_sec  = TIMEOUT_S;
     tv.tv_usec = 0;
-    if (setsockopt(client->sockt, SOL_SOCKET, SO_RCVTIMEO, &tv, 
+    if (setsockopt(client->ctrl_sockt, SOL_SOCKET, SO_RCVTIMEO, &tv, 
         sizeof(tv)) < 0) {
+        #if DEBUG_MODE
         printf("Server: could not set socket timeout.\n");
+        #endif
         exit(EXIT_FAILURE);
     }
 
@@ -84,36 +112,47 @@ void* handle_client(void* argument) {
     saddr.sin_family      = AF_INET;
     saddr.sin_addr.s_addr = INADDR_ANY;
     do {
-        port = 50000 + (rand() % 10000);
-        saddr.sin_port = htons(port);
-        if (bind(client->sockt, (struct sockaddr *) &saddr, 
+        // control port must be even
+        ctrlPort = 40000 + (rand() % 20000);
+        saddr.sin_port = htons(ctrlPort);
+        if (bind(client->ctrl_sockt, (struct sockaddr *) &saddr, 
             sizeof(saddr)) < 0) {
-            port = 0;
+            ctrlPort = 0;
         }
-    } while (port == 0);
-    printf("Server: client %d is connected at port %d.\n", client->id, port);
+    } while (ctrlPort == 0);
+    #if DEBUG_MODE
+    printf("Server: client %d => port %d.\n", client->id, ctrlPort);
+    #endif
 
     // sending confirmation message to client
-    int_to_4chars(port, buffer);
-    if (sendto(client->sockt, buffer, 4, 0, (struct sockaddr *) &client->caddr, 
-        sizeof(client->caddr)) < 0) {
+    int_to_4chars(ctrlPort, buffer);
+    if (sendto(client->ctrl_sockt, buffer, 4, 0, 
+        (struct sockaddr *) &client->caddr, sizeof(client->caddr)) < 0) {
+        #if DEBUG_MODE
         printf("Server: failed to send data to client.\n");
+        #endif
         exit(EXIT_FAILURE);
     } 
 
     // 
     while (1) {
-        if ((rcvd = recvfrom(client->sockt, buffer, BUFFER_LEN, 0, 
-             (struct sockaddr *) &client->caddr, &addrlen)) == -1) {
+        if ((rcvd = recvfrom(client->ctrl_sockt, buffer, BUFFER_LEN, 0, 
+             (struct sockaddr *) &client->caddr, &addrLen)) == -1) {
+            #if DEBUG_MODE
             printf("Server: failed to receive data from new client.\n");
+            #endif
             break;
         }
 
         cmdID = chars_to_int(buffer);
         if (cmdID == LIST_CODE) {
+            #if DEBUG_MODE
             printf("Server: list cmd received from client %d.\n", client->id);
+            #endif
             if (send_video_list(client)) {
-                printf("Server: Failed to send list of videos.\n");
+                #if DEBUG_MODE
+                printf("Server: failed to send list of videos.\n");
+                #endif
                 break;
             }
 
@@ -122,13 +161,20 @@ void* handle_client(void* argument) {
             send_video(client, videoID);
 
         } else if (cmdID == EXIT_CODE) {
-            printf("Server: Client %d leave.\n", client->id);
+            #if DEBUG_MODE
+            printf("Server: client %d left.\n", client->id);
+            #endif
             break;
         
         } else {
-            printf("Server: Unknown command from client %d.\n", client->id);
+            #if DEBUG_MODE
+            printf("Server: unknown command from client %d.\n", client->id);
+            #endif
         }
     }
+
+    close(client->ctrl_sockt);
+    close(client->data_sockt);
 }
 
 int can_accept(int cid) {
@@ -143,7 +189,9 @@ void get_video_path(int videoID, char* path) {
 
     fp = fopen(VIDEO_LIST_PATH, "r");
     if (fp == NULL) {
+        #if DEBUG_MODE
         printf("Server: video list file not found.\n");
+        #endif
         return;
     }
 
@@ -162,6 +210,10 @@ void get_video_path(int videoID, char* path) {
     fclose(fp);
 }
 
+void* handle_feedback(void* parameters) {
+
+}
+
 int send_video(cinfo_t* client, int videoID) {
     char fpath[BUFFER_LEN];
     int i, *nextMsg;
@@ -175,34 +227,45 @@ int send_video(cinfo_t* client, int videoID) {
     fpath[0] = 0;
     get_video_path(videoID, fpath);
     if (fpath[0] == 0) {
+        #if DEBUG_MODE
         printf("Server: video %d could not be found.\n", videoID);
+        #endif
+        return 1;
     }
     
     fp = fopen(fpath, "r");
     if (fp == NULL) {
+        #if DEBUG_MODE
         printf("Server: video file not found.\n");
+        #endif
         return 1;
     }
 
-    get_video_metadata(fp, &vinfo);
+//    get_video_metadata(fp, &vinfo);
 
     nextMsg = (int *) malloc(vinfo.n_cat * sizeof(int));
     if (nextMsg == NULL) {
+        #if DEBUG_MODE
         printf("Server: no memory.\n");
+        #endif
         return 1;
     }
 
     // creating time table (columns: [Release Time, Deadline, Increment])
     ttable = (clock_t**) malloc(3 * sizeof(clock_t *));
     if (ttable == NULL) {
+        #if DEBUG_MODE
         printf("Server: no memory for the time table.\n");
+        #endif
         return 1;
     }
 
     for (i = 0; i < 3; i++) {
         ttable[i] = (clock_t*) malloc(vinfo.n_cat * sizeof(clock_t));
         if (ttable[i] == NULL) {
+            #if DEBUG_MODE
             printf("Server: no memory for the time table.\n");
+            #endif
             return 1;
         }
     }
@@ -216,7 +279,7 @@ int send_video(cinfo_t* client, int videoID) {
     seqNum = rand();
 
     // sending loop
-    while (loag_segment(fp, buffer) != 1) {
+/*    while (loag_segment(fp, buffer) != 1) {
         // time table round initialization
         for (i = 0; i < vinfo.n_cat; i++) {
             nextMsg[0]   = 0;
@@ -253,7 +316,7 @@ int send_video(cinfo_t* client, int videoID) {
             }
         }
     }
-
+*/
     return 0;
 }
 
@@ -264,16 +327,20 @@ int send_video_list(cinfo_t* client) {
 
     fp = fopen(VIDEO_LIST_PATH, "r");
     if (fp == NULL) {
+        #if DEBUG_MODE
         printf("Server: video list file not found.\n");
+        #endif
         return 1;
     }
 
     fgets(buffer, BUFFER_LEN, fp);
     sscanf(buffer, "%d", &numVideos);
     int_to_4chars(numVideos, buffer);
-    if (sendto(client->sockt, buffer, 4, 0, (struct sockaddr *) &client->caddr, 
-        sizeof(client->caddr)) < 0) {
+    if (sendto(client->data_sockt, buffer, 4, 0, 
+        (struct sockaddr *) &client->caddr, sizeof(client->caddr)) < 0) {
+        #if DEBUG_MODE
         printf("Server: failed to send data to client.\n");
+        #endif
         fclose(fp);
         return 1;
     } 
@@ -285,10 +352,12 @@ int send_video_list(cinfo_t* client) {
         sscanf(buffer, "%d;%[^;]s;%*s", &vid, &buffer[4]);
         int_to_4chars(vid, buffer);
         msgSize = 4 + strlen(&buffer[4]); // 4 bytes for the vid
-        if (sendto(client->sockt, buffer, msgSize, 0, 
+        if (sendto(client->ctrl_sockt, buffer, msgSize, 0, 
             (struct sockaddr *) &client->caddr, 
             sizeof(client->caddr)) < 0) {
+            #if DEBUG_MODE
             printf("Server: failed to send data to client.\n");
+            #endif
             fclose(fp);
             return 1;
         }
