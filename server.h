@@ -18,6 +18,7 @@
 #define MAX_CONNECTIONS 5
 #define HYPER_PERIOD    4 // seconds
 #define TIMEOUT_S       60
+#define TIMEOUT_US      0
 #define BUFFER_LEN      512
 #define VIDEO_LIST_PATH "./video/list.txt"
 
@@ -36,6 +37,14 @@ typedef struct {
     int           data_sockt;
     struct sockaddr_in caddr;
 } cinfo_t;
+
+typedef struct {
+    uint32_t seq_num;
+} flow_t;
+
+typedef struct {
+    uint32_t seq_num;
+} mheader_t;
 
 typedef struct {
     int length;
@@ -76,5 +85,10 @@ int send_message(message_t msg, uint32_t seqNum);
  * 
  */ 
 int send_video_list(cinfo_t* client);
+
+/**
+ * 
+ **/
+int send_video_msg(cinfo_t* client, message_t* msg, flow_t* info, char* buffer);
 
 #endif

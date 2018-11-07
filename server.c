@@ -98,6 +98,16 @@ void* handle_client(void* argument) {
     }
 
     tv.tv_sec  = TIMEOUT_S;
+    tv.tv_usec = TIMEOUT_US;
+    if (setsockopt(client->ctrl_sockt, SOL_SOCKET, SO_RCVTIMEO, &tv, 
+        sizeof(tv)) < 0) {
+        #if DEBUG_MODE
+        printf("Server: could not set socket timeout.\n");
+        #endif
+        exit(EXIT_FAILURE);
+    }
+
+    tv.tv_sec  = TIMEOUT_S;
     tv.tv_usec = 0;
     if (setsockopt(client->ctrl_sockt, SOL_SOCKET, SO_RCVTIMEO, &tv, 
         sizeof(tv)) < 0) {
@@ -215,25 +225,27 @@ void* handle_feedback(void* parameters) {
 }
 
 int send_video(cinfo_t* client, int videoID) {
-    char fpath[BUFFER_LEN];
-    int i, *nextMsg;
+    char buffer[BUFFER_LEN];
+    int i, addrLen, rcvd, *nextMsg;
     uint32_t seqNum;
     video_metadata_t vinfo;
-    segment_t *buffer;
+    segment_t *segment;
     message_t msg;
+    flow_t flowInfo;
     clock_t currTime, segDeadline, **ttable;
     FILE *fp;
 
-    fpath[0] = 0;
-    get_video_path(videoID, fpath);
-    if (fpath[0] == 0) {
+    // first uses the the buffer to store the file path.
+    buffer[0] = 0;
+    get_video_path(videoID, buffer);
+    if (buffer[0] == 0) {
         #if DEBUG_MODE
         printf("Server: video %d could not be found.\n", videoID);
         #endif
         return 1;
     }
     
-    fp = fopen(fpath, "r");
+    fp = fopen(buffer, "r");
     if (fp == NULL) {
         #if DEBUG_MODE
         printf("Server: video file not found.\n");
@@ -276,10 +288,10 @@ int send_video(cinfo_t* client, int videoID) {
     }
 
     // first sequence number must be random to avoid problems
-    seqNum = rand();
+    flowInfo.seq_num = rand();
 
     // sending loop
-/*    while (loag_segment(fp, buffer) != 1) {
+    while (loag_segment(fp, segment) != 1) {
         // time table round initialization
         for (i = 0; i < vinfo.n_cat; i++) {
             nextMsg[0]   = 0;
@@ -293,7 +305,7 @@ int send_video(cinfo_t* client, int videoID) {
                 if (currTime > ttable[1][i]) {
                     // missed the deadline
                     nextMsg[i]++;
-                    if (nextMsg[i] < buffer->cats[i].n_msgs) {
+                    if (nextMsg[i] < segment->cats[i].n_msgs) {
                         ttable[0][i] = ttable[1][i] + 1;
                         ttable[1][i] = ttable[1][i] + ttable[2][i];
                     } else {
@@ -302,10 +314,11 @@ int send_video(cinfo_t* client, int videoID) {
                     }
                 } else if (currTime > ttable[0][i]) {
                     // can send this message
-                    msg = buffer->cats[i].msgs[nextMsg[i]];
+                    msg = segment->cats[i].msgs[nextMsg[i]];
                     // MUST SEND THE MESSAGE
+                    send_video_msg(client, &msg, &flowInfo, buffer);
                     nextMsg[i]++;
-                    if (nextMsg[i] < buffer->cats[i].n_msgs) {
+                    if (nextMsg[i] < segment->cats[i].n_msgs) {
                         ttable[0][i] = ttable[1][i] + 1;
                         ttable[1][i] = ttable[1][i] + ttable[2][i];
                     } else {
@@ -315,8 +328,21 @@ int send_video(cinfo_t* client, int videoID) {
                 }
             }
         }
+
+        // try to receive feedback from client
+        if ((rcvd = recvfrom(client->ctrl_sockt, buffer, BUFFER_LEN, 0, 
+             (struct sockaddr *) &client->caddr, &addrLen)) == -1) {
+            #if DEBUG_MODE
+            printf("Server: failed to receive feedback from new client.\n");
+            #endif
+
+        } else {
+            // handle feedback
+
+        }
+        
     }
-*/
+/**/
     return 0;
 }
 
@@ -364,4 +390,24 @@ int send_video_list(cinfo_t* client) {
     }
     fclose(fp);
     return 0;
+}
+
+/**
+ * 
+ **/
+int send_video_msg(cinfo_t* c, message_t* msg, flow_t* info, char* buffer) {
+    mheader_t hdr;
+
+    hdr.seq_num = info->seq_num++;
+
+    memcpy(buffer, &hdr, sizeof(mheader_t));
+    memcpy(buffer + sizeof(mheader_t), msg, sizeof(message_t));
+
+    if (sendto(c->data_sockt, buffer, 4, 0, 
+        (struct sockaddr *) &c->caddr, sizeof(c->caddr)) < 0) {
+        #if DEBUG_MODE
+        printf("Server: failed to send data to client.\n");
+        #endif
+        return 1;
+    }
 }
