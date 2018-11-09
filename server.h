@@ -16,6 +16,7 @@
 #include "video.h"
 
 #define MAX_CONNECTIONS 5
+#define MAX_TRY         3
 #define HYPER_PERIOD    4 // seconds
 #define TIMEOUT_S       60
 #define TIMEOUT_US      0
