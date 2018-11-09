@@ -234,7 +234,7 @@ int send_video(cinfo_t* client, int videoID) {
     flow_t flowInfo;
     clock_t currTime, segDeadline, **ttable;
     FILE *fp;
-
+printf("starting sending function\n");
     // first uses the the buffer to store the file path.
     buffer[0] = 0;
     get_video_path(videoID, buffer);
@@ -281,15 +281,58 @@ int send_video(cinfo_t* client, int videoID) {
             return 1;
         }
     }
+    #if DEBUG_MODE
+    printf("Server: time table created.\n");
+    #endif
 
     // filling the increments (they are fixed for a video)
-    for (i = 0; i < vinfo.n_cat; i++) {
-        ttable[2][i] = (HYPER_PERIOD * CLOCKS_PER_SEC) / vinfo.cat[i].n_msgs;
-    }
+    // for (i = 0; i < vinfo.n_cat; i++) {
+    //     ttable[2][i] = (HYPER_PERIOD * CLOCKS_PER_SEC) / vinfo.cat[i].n_msgs;
+    // }
+
+    #if DEBUG_MODE
+    printf("Server: time table just got filled.\n");
+    #endif
 
     // first sequence number must be random to avoid problems
     flowInfo.seq_num = rand();
-
+    #if DEBUG_MODE
+    printf("Server: first sequence number is %u\n", flowInfo.seq_num);
+    #endif
+    // send the first sequence number (and assure that the client has received 
+    // it)
+    int_to_4chars(flowInfo.seq_num, buffer);
+    i = 0;
+    while (i < MAX_TRY) {
+        if (sendto(client->ctrl_sockt, buffer, 4, 0, 
+            (struct sockaddr *) &client->caddr, 
+            sizeof(client->caddr)) < 0) {
+            #if DEBUG_MODE
+            printf("Server: failed to send first seqNum to client.\n");
+            #endif
+            // fclose(fp);
+            return 1;
+        }
+        if ((rcvd = recvfrom(client->ctrl_sockt, buffer, BUFFER_LEN, 0, 
+             (struct sockaddr *) &client->caddr, &addrLen)) > -1) {
+            // answer must be the first sequence number
+            if (chars_to_int(buffer) == flowInfo.seq_num) {
+                break;
+            }
+        }
+        #if DEBUG_MODE
+        printf("Server: failed to receive data from new client.\n");
+        #endif
+        i++;
+    }
+    if (i == MAX_TRY) {
+        #if DEBUG_MODE
+        printf("Server: failed to initiate sending routine.\n");
+        #endif
+        return 1;
+    }
+    printf("Streaming will start now.\n");
+    return 0;
     // sending loop
     while (loag_segment(fp, segment) != 1) {
         // time table round initialization
