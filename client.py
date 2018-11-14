@@ -2,15 +2,35 @@ import sys
 import time
 import socket
 import random
+from olist import OrderedList
 
 BUFFER_SIZE     = 1024
-SOCKET_TIMEOUT  = 2.0 
-FEEDBACK_PERIOD = 5.0 
+SOCKET_TIMEOUT  = 2.0 # in seconds
+FEEDBACK_PERIOD = 5.0 # in seconds
+NEXT_TIMEOUT    = 0.5 # in seconds 
 
 LIST_CODE = 7673 
 PLAY_CODE = 8076
 EXIT_CODE = 9999
 NDEF_CODE =   -1
+
+class NxtHeader:
+    def __init__(self, seqNum):
+        self.seq_num = seqNum
+
+class NxtPayload:
+    # MSG
+    # DATA
+    # CHANNEL
+    def __init__(self, payload):
+        return
+
+class NxtPacket:
+    def __init__(self, msg):
+        seqNum  = bin2int(msg)
+        payload = msg[4:]
+        self.header  = NxtHeader(seqNum)
+        self.payload = NxtPayload(payload)
 
 # goes from binary (4 bytes) to int
 def bin2int(buffer):
@@ -45,20 +65,16 @@ def print_video_list(vlist):
 
 # decompose a message into header + payload
 def decompose_msg(msg):
-    # HEADER = {SEQ_NUM}
-    # UTILIZAR struct PARA DECODIFICAR TUDO ??
-    header = {}
-    header["seqNum"] = bin2int(msg)
-    # translate payload to frame message structure
-    payload = msg[4:] # MODIFICAR !!!
-    return header, payload
+    return NxtPacket(msg)
 
 
 # play video from server while receiving it
 def receive_and_play(vid, sockt, server):
-    nextSeqNum = 0
-    lostMsgs   = 0
-    nextFBTime = time.time() + FEEDBACK_PERIOD
+    nextSeqNum   = 0
+    lostMsgs     = 0
+    fbDeadline   = time.time() + FEEDBACK_PERIOD
+    nextDeadline = 0
+    waitingList  = OrderedList(unique=True)
     
     sockt.sendto(int2bin(PLAY_CODE) + int2bin(vid), server)
     
@@ -66,18 +82,47 @@ def receive_and_play(vid, sockt, server):
     nextSeqNum = bin2int(msg)
     print("First seqNum = " + str(nextSeqNum))
     sockt.sendto(msg, server)
-    return # REMOVER
+
+    nextDeadline = time.time() + NEXT_TIMEOUT
+    
     while True:
         # receives a message from server and send it to be displayed
         msg, addr = sockt.recvfrom(BUFFER_SIZE)
-        header, payload = decompose_msg(msg)
+        npckt = decompose_msg(msg)
+
+        if npckt.header.seq_num < nextSeqNum:
+            # received a duplicate
+
+        else:
+            if npckt.header.seq_num == nextSeqNum:
+                # received the next expected msg
+                nextSeqNum   += 1
+                nextDeadline += NEXT_TIMEOUT
+
+            elif npckt.header.seq_num > nextSeqNum:
+                # received a valid msg
+                waitingList.add(npckt.header.seq_num)
+
+        # msg was lost
+        if time.time() > nextDeadline:
+            lostMsgs     += 1
+            while True:
+                nextSeqNum += 1
+                if nextSeqNum < waitingList.get_min():
+                    break
+                elif nextSeqNum > waitingList.get_min():
+                    print("Client: nextSeqNum > min(waitingList)")
+                    exit(1)
+                waitingList.remove_min()
+            nextDeadline += NEXT_TIMEOUT
 
         # verifies if it is time to send feedaback to the server
-        if time.time() > nextFBTime:
+        if time.time() > fbDeadline:
             # set next feedback time
-            nextFBTime += FEEDBACK_PERIOD
+            fbDeadline += FEEDBACK_PERIOD
             # create message using the statistics
-
+            # ENVIAR SEQ-NUM DO ULTIMO PACOTE RECEBIDO ???
+            sockt.sendto(int2bin(lostMsgs), server)
             # reset variables for next period
             lostMsgs = 0
 

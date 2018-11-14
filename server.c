@@ -453,4 +453,6 @@ int send_video_msg(cinfo_t* c, message_t* msg, flow_t* info, char* buffer) {
         #endif
         return 1;
     }
+
+    return 0;
 }
