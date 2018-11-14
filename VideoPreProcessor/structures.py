@@ -87,30 +87,34 @@ class Channel:
 		return Channel(self.list[first:(first+length)])
 	
 	#select [length] elements from the interval [first,last)
-	def getRandomSubDataset(self,first,last,length):
+	def getRandomSubDataset(self,first,last,length,expoent,fixed):
 		#no data to return
 		if length<=0:
 			return []
 		#expected more data than we have
 		if(last>len(self)):
-			print('Warning: The last index is out of range')
+			print('Warning: The last index is out of range. f:'\
+				+str(first)+'; l:'+str(last)+'; s:'+str(len(self)))
 			last = len(self)
 		#expected more data than possible within the interval. Then, return the entire interval
 		if(last-first<length):
 			print('Warning: The redundant sub-message cannot be completly fulfilled')
 			return Channel(self.list[first:last])
-		
+		#fixed is the number of data elements deterministically
+		if(fixed>length):
+			fixed = length
+		#insert the fixed data
+		subList = list(self.list[inicio:inicio+fixed])
 		#The discrete probability distribution for the choice of the redundant data is
 		#proportional to the square of the importance of each data element
 		weights = []
-		for i in range(first,last):
+		for i in range(first+fixed,last):
 			w = self.list[i].D_value
-			weights.append(w**2)
+			weights.append(w**expoent)
 		S = sum(weights)
 		
 		#choose the data according to the weights
-		refList = list(self.list)
-		subList = []
+		refList = list(self.list[first+fixed:last])
 		while(len(subList)!=length):
 			rand = random.uniform(0,S)
 			s = 0.0
@@ -173,16 +177,16 @@ class Data:
 		return(Data(rChannel, gChannel, bChannel, self.frame))
 	
 	#select [length] elements from the interval [first,last)
-	def getRandomSubDataset(self,first,last,length):
+	def getRandomSubDataset(self,first,last,length,expoent,fixed):
 		subChannels = []
 		for channel in self.channel:
-			subChannels.append(channel.getRandomSubDataset(first,last,length))
+			subChannels.append(channel.getRandomSubDataset(first,last,length,expoent,fixed))
 		return(Data(subChannels[2],subChannels[1],subChannels[0],self.frame))
 	
 	#segments the data of this object within ncat categories. Each category is formed by
 	#n_msgs[cat] messages with msg_sizes[cat] elements and with 100*msg_redundancies[cat]%
-	#of redundancy
-	def createMsgs(self,ncat,n_msgs,msg_sizes,msg_redundancies):
+	#of redundancy. Fixed is the number of data elements that will deterministically be chosen
+	def createMsgs(self,ncat,n_msgs,msg_sizes,msg_redundancies,expoent,fixed):
 		
 		if(self.checkMsgMetadata(ncat,n_msgs,msg_sizes,msg_redundancies)):
 			first = 0
@@ -194,21 +198,21 @@ class Data:
 					#the data for this category
 					msg = self.getSubDataset(first,\
 						int(math.floor((1-msg_redundancies[cat])*msg_sizes[cat])))
-						
-					first = first + int(math.floor((1-msg_redundancies[cat])*msg_sizes[cat]))
 					
 					#if there is redundancy to insert
 					if(msg_redundancies[cat]>0):
 						#the redundancy (a specific percentage of the message is composed by
 						#random past elements)
 						red = self.getRandomSubDataset(0,first,\
-							int(math.ceil(msg_redundancies[cat]*msg_sizes[cat])))
+							int(math.ceil(msg_redundancies[cat]*msg_sizes[cat])),expoent,fixed)
 						
 						#merge the data from this category and the redundancy
 						msg.insertData(red)
 					
 					#list of messages for this category
 					msgs.append(msg)
+					
+					first = first + int(math.floor((1-msg_redundancies[cat])*msg_sizes[cat]))
 					
 				#insert the new messages into the corresponding category
 				cats.append(msgs)
@@ -243,4 +247,13 @@ class Data:
 					return False
 				else:
 					return True
-
+	
+	#generates a valid configuration for the Msg Metadata according to the informed parameters.
+	#msg_sizes_base is the desired proportion between the elements of msg_sizes
+	def generateNiceMsg_Sizes(self,ncat, n_msgs, msg_redundancies, msg_sizes_base):
+		msg_sizes = np.ceil(float(self.size()\
+			/np.matmul(np.array(msg_sizes_base,dtype=float),\
+				np.matmul(np.diag(1-np.array(msg_redundancies,dtype=float)),\
+					np.array(n_msgs,dtype=float).T)))\
+			*np.array(msg_sizes_base,dtype=float))
+		return np.array(msg_sizes,dtype=int)
