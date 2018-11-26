@@ -14,6 +14,7 @@
 #include "socket_sup.h"
 #include "tools.h"
 #include "video.h"
+#include "ttable.h"
 
 #define MAX_CONNECTIONS 5
 #define MAX_TRY         3
@@ -51,6 +52,10 @@ typedef struct {
     int length;
     int  *list; 
 } vlist_t;
+
+typedef struct {
+    uint32_t lostMsgs;
+} feedback_t;
 
 /**
  * 

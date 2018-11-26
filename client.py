@@ -88,11 +88,12 @@ def receive_and_play(vid, sockt, server):
     while True:
         # receives a message from server and send it to be displayed
         msg, addr = sockt.recvfrom(BUFFER_SIZE)
+        print("Client: received a msg")
         npckt = decompose_msg(msg)
 
         if npckt.header.seq_num < nextSeqNum:
             # received a duplicate
-
+            print("Client: duplicated msg received")
         else:
             if npckt.header.seq_num == nextSeqNum:
                 # received the next expected msg

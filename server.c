@@ -107,15 +107,15 @@ void* handle_client(void* argument) {
         exit(EXIT_FAILURE);
     }
 
-    tv.tv_sec  = TIMEOUT_S;
-    tv.tv_usec = 0;
-    if (setsockopt(client->ctrl_sockt, SOL_SOCKET, SO_RCVTIMEO, &tv, 
-        sizeof(tv)) < 0) {
-        #if DEBUG_MODE
-        printf("Server: could not set socket timeout.\n");
-        #endif
-        exit(EXIT_FAILURE);
-    }
+    // tv.tv_sec  = TIMEOUT_S;
+    // tv.tv_usec = 0;
+    // if (setsockopt(client->data_sockt, SOL_SOCKET, SO_RCVTIMEO, &tv, 
+    //     sizeof(tv)) < 0) {
+    //     #if DEBUG_MODE
+    //     printf("Server: could not set socket timeout.\n");
+    //     #endif
+    //     exit(EXIT_FAILURE);
+    // }
 
     // finding an available port
     memset(&saddr, 0, sizeof(saddr));
@@ -168,7 +168,12 @@ void* handle_client(void* argument) {
 
         } else if (cmdID == PLAY_CODE) {
             videoID = chars_to_int(&buffer[4]);
-            send_video(client, videoID);
+            if (send_video(client, videoID) == 1) {
+                #if DEBUG_MODE
+                printf("Server: failed to send video %d for client %d.\n", 
+                       videoID, client->id);
+                #endif
+            }
 
         } else if (cmdID == EXIT_CODE) {
             #if DEBUG_MODE
@@ -229,12 +234,19 @@ int send_video(cinfo_t* client, int videoID) {
     int i, addrLen, rcvd, *nextMsg;
     uint32_t seqNum;
     video_metadata_t vinfo;
-    segment_t *segment;
+    segment_t segment;
     message_t msg;
     flow_t flowInfo;
-    clock_t currTime, segDeadline, **ttable;
+    feedback_t *fb;
+    clock_t currTime, segDeadline;//, **ttable;
+    ttable_entry_t *ttable;
+    struct timeval tv;
     FILE *fp;
-printf("starting sending function\n");
+
+    #if DEBUG_MODE
+    printf("Server: starting to send a video.\n");
+    #endif
+
     // first uses the the buffer to store the file path.
     buffer[0] = 0;
     get_video_path(videoID, buffer);
@@ -253,7 +265,25 @@ printf("starting sending function\n");
         return 1;
     }
 
-//    get_video_metadata(fp, &vinfo);
+    get_video_metadata(fp, &vinfo);
+    #if DEBUG_MODE
+    printf("video has %d categories with ", vinfo.n_cat);
+    for (i = 0; i < vinfo.n_cat; i++) {
+        printf("%d ", vinfo.cat[i].n_msgs);
+    }
+    printf("messages each.\n");
+    #endif
+
+    // removing control socket timeout for feedback reception.
+    tv.tv_sec  = 0;
+    tv.tv_usec = 0;
+    if (setsockopt(client->ctrl_sockt, SOL_SOCKET, SO_RCVTIMEO, &tv, 
+        sizeof(tv)) < 0) {
+        #if DEBUG_MODE
+        printf("Server: could not remove control socket timeout.\n");
+        #endif
+        return 1;
+    }
 
     nextMsg = (int *) malloc(vinfo.n_cat * sizeof(int));
     if (nextMsg == NULL) {
@@ -264,7 +294,7 @@ printf("starting sending function\n");
     }
 
     // creating time table (columns: [Release Time, Deadline, Increment])
-    ttable = (clock_t**) malloc(3 * sizeof(clock_t *));
+    ttable = (ttable_entry_t*) malloc(vinfo.n_cat * sizeof(ttable_entry_t));
     if (ttable == NULL) {
         #if DEBUG_MODE
         printf("Server: no memory for the time table.\n");
@@ -272,23 +302,14 @@ printf("starting sending function\n");
         return 1;
     }
 
-    for (i = 0; i < 3; i++) {
-        ttable[i] = (clock_t*) malloc(vinfo.n_cat * sizeof(clock_t));
-        if (ttable[i] == NULL) {
-            #if DEBUG_MODE
-            printf("Server: no memory for the time table.\n");
-            #endif
-            return 1;
-        }
-    }
     #if DEBUG_MODE
     printf("Server: time table created.\n");
     #endif
 
     // filling the increments (they are fixed for a video)
-    // for (i = 0; i < vinfo.n_cat; i++) {
-    //     ttable[2][i] = (HYPER_PERIOD * CLOCKS_PER_SEC) / vinfo.cat[i].n_msgs;
-    // }
+    for (i = 0; i < vinfo.n_cat; i++) {
+        ttable[i].inc = (HYPER_PERIOD * CLOCKS_PER_SEC) / vinfo.cat[i].n_msgs;
+    }
 
     #if DEBUG_MODE
     printf("Server: time table just got filled.\n");
@@ -332,46 +353,58 @@ printf("starting sending function\n");
         return 1;
     }
     printf("Streaming will start now.\n");
-    return 0;
+    
     // sending loop
-    while (loag_segment(fp, segment) != 1) {
+    while (load_segment(fp, &segment) != 1) {
+        printf("New segment loaded (with %d categories).\n", segment.n_cat); // TODO: REMOVER
         // time table round initialization
         for (i = 0; i < vinfo.n_cat; i++) {
-            nextMsg[0]   = 0;
-            ttable[0][i] = clock();
-            ttable[1][i] = ttable[0][i] + ttable[2][i];
+            nextMsg[i]   = 0;
+            ttable[i].rt = clock();
+            ttable[i].dl = ttable[i].rt + ttable[i].inc;
         }
 
         segDeadline = clock() + (HYPER_PERIOD * CLOCKS_PER_SEC);
         while((currTime = clock()) < segDeadline) {
             for (i = 0; i < vinfo.n_cat; i++) {
-                if (currTime > ttable[1][i]) {
+                printf("i = %d\n", i);  // TODO: REMOVER
+                if (currTime > ttable[i].dl) {
                     // missed the deadline
+                    #if DEBUG_MODE
+                    printf("Server: missed a deadline.\n");
+                    #endif
                     nextMsg[i]++;
-                    if (nextMsg[i] < segment->cats[i].n_msgs) {
-                        ttable[0][i] = ttable[1][i] + 1;
-                        ttable[1][i] = ttable[1][i] + ttable[2][i];
+                    if (nextMsg[i] < segment.cats[i].n_msgs) {
+                        ttable[i].rt = ttable[i].dl + 1;
+                        ttable[i].dl = ttable[i].dl + ttable[i].inc;
                     } else {
-                        ttable[0][i] = segDeadline;
-                        ttable[1][i] = segDeadline;
+                        ttable[i].rt = segDeadline;
+                        ttable[i].dl = segDeadline;
                     }
-                } else if (currTime > ttable[0][i]) {
+                    break;
+
+                } else if (currTime > ttable[i].rt) {
                     // can send this message
-                    msg = segment->cats[i].msgs[nextMsg[i]];
-                    // MUST SEND THE MESSAGE
+                    printf("can send.\n");  // TODO: REMOVER
+                    msg = segment.cats[i].msgs[nextMsg[i]];
+                    printf("msg has %d data.\n", msg.n_data); // TODO: REMOVER
                     send_video_msg(client, &msg, &flowInfo, buffer);
                     nextMsg[i]++;
-                    if (nextMsg[i] < segment->cats[i].n_msgs) {
-                        ttable[0][i] = ttable[1][i] + 1;
-                        ttable[1][i] = ttable[1][i] + ttable[2][i];
+                    printf("updating.\n"); // TODO: REMOVER
+                    if (nextMsg[i] < segment.cats[i].n_msgs) {
+                        ttable[i].rt = ttable[i].dl + 1;
+                        ttable[i].dl = ttable[i].dl + ttable[i].inc;
                     } else {
-                        ttable[0][i] = segDeadline;
-                        ttable[1][i] = segDeadline;
+                        ttable[i].rt = segDeadline;
+                        ttable[i].dl = segDeadline;
                     }
+                    printf("updated.\n"); // TODO: REMOVER
+                    break;
                 }
             }
         }
 
+        printf("trying to receive feedback.\n");  // TODO: REMOVER
         // try to receive feedback from client
         if ((rcvd = recvfrom(client->ctrl_sockt, buffer, BUFFER_LEN, 0, 
              (struct sockaddr *) &client->caddr, &addrLen)) == -1) {
@@ -381,11 +414,35 @@ printf("starting sending function\n");
 
         } else {
             // handle feedback
-
+            #if DEBUG_MODE
+            printf("Server: received a feedback msg.\n");
+            #endif
+            
+            fb = (feedback_t *)buffer;
+            
+            #if DEBUG_MODE
+            printf("Server: client lost %d messages.\n", fb->lostMsgs);
+            #endif
         }
-        
+
+fp = NULL; // TEMPORARIO !!!!!!!!!!!!
     }
 /**/
+
+    #if DEBUG_MODE
+    printf("Server: video was sent.\n");
+    #endif
+    // reseting control socket timeout
+    tv.tv_sec  = TIMEOUT_S;
+    tv.tv_usec = TIMEOUT_US;
+    if (setsockopt(client->ctrl_sockt, SOL_SOCKET, SO_RCVTIMEO, &tv, 
+        sizeof(tv)) < 0) {
+        #if DEBUG_MODE
+        printf("Server: could not reset control socket timeout.\n");
+        #endif
+        return 1;
+    }
+
     return 0;
 }
 
@@ -440,12 +497,14 @@ int send_video_list(cinfo_t* client) {
  **/
 int send_video_msg(cinfo_t* c, message_t* msg, flow_t* info, char* buffer) {
     mheader_t hdr;
-
+printf("preparint message.\n");
     hdr.seq_num = info->seq_num++;
 
     memcpy(buffer, &hdr, sizeof(mheader_t));
     memcpy(buffer + sizeof(mheader_t), msg, sizeof(message_t));
 
+printf("Server: sending a data message to client.\n");
+    
     if (sendto(c->data_sockt, buffer, 4, 0, 
         (struct sockaddr *) &c->caddr, sizeof(c->caddr)) < 0) {
         #if DEBUG_MODE
@@ -453,6 +512,8 @@ int send_video_msg(cinfo_t* c, message_t* msg, flow_t* info, char* buffer) {
         #endif
         return 1;
     }
+
+printf("Server: message sent.\n");
 
     return 0;
 }
