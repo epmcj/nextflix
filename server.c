@@ -230,12 +230,12 @@ void* handle_feedback(void* parameters) {
 }
 
 int send_video(cinfo_t* client, int videoID) {
-    char buffer[BUFFER_LEN];
+    char buffer[SEND_BUFFER_LEN];
     int i, addrLen, rcvd, *nextMsg;
     uint32_t seqNum;
     video_metadata_t vinfo;
     segment_t segment;
-    message_t msg;
+    message_t *msg;
     flow_t flowInfo;
     feedback_t *fb;
     clock_t currTime, segDeadline;//, **ttable;
@@ -246,6 +246,14 @@ int send_video(cinfo_t* client, int videoID) {
     #if DEBUG_MODE
     printf("Server: starting to send a video.\n");
     #endif
+
+    // segment = (segment_t *) malloc(sizeof(segment_t));
+    // if (segment == NULL) {
+    //     #if DEBUG_MODE
+    //     printf("Server: could not allocate memory for segment.\n");
+    //     #endif
+    //     return 1;
+    // }
 
     // first uses the the buffer to store the file path.
     buffer[0] = 0;
@@ -276,7 +284,7 @@ int send_video(cinfo_t* client, int videoID) {
 
     // removing control socket timeout for feedback reception.
     tv.tv_sec  = 0;
-    tv.tv_usec = 0;
+    tv.tv_usec = 30000;
     if (setsockopt(client->ctrl_sockt, SOL_SOCKET, SO_RCVTIMEO, &tv, 
         sizeof(tv)) < 0) {
         #if DEBUG_MODE
@@ -334,7 +342,7 @@ int send_video(cinfo_t* client, int videoID) {
             // fclose(fp);
             return 1;
         }
-        if ((rcvd = recvfrom(client->ctrl_sockt, buffer, BUFFER_LEN, 0, 
+        if ((rcvd = recvfrom(client->ctrl_sockt, buffer, SEND_BUFFER_LEN, 0, 
              (struct sockaddr *) &client->caddr, &addrLen)) > -1) {
             // answer must be the first sequence number
             if (chars_to_int(buffer) == flowInfo.seq_num) {
@@ -367,7 +375,6 @@ int send_video(cinfo_t* client, int videoID) {
         segDeadline = clock() + (HYPER_PERIOD * CLOCKS_PER_SEC);
         while((currTime = clock()) < segDeadline) {
             for (i = 0; i < vinfo.n_cat; i++) {
-                printf("i = %d\n", i);  // TODO: REMOVER
                 if (currTime > ttable[i].dl) {
                     // missed the deadline
                     #if DEBUG_MODE
@@ -385,10 +392,11 @@ int send_video(cinfo_t* client, int videoID) {
 
                 } else if (currTime > ttable[i].rt) {
                     // can send this message
-                    printf("can send.\n");  // TODO: REMOVER
-                    msg = segment.cats[i].msgs[nextMsg[i]];
-                    printf("msg has %d data.\n", msg.n_data); // TODO: REMOVER
-                    send_video_msg(client, &msg, &flowInfo, buffer);
+                    msg = &segment.cats[i].msgs[nextMsg[i]];
+                    printf("msg has %d data.\n", msg->n_data); // TODO: REMOVER
+                    printf("seqNum = %d.\n", flowInfo.seq_num); // TODO: REMOVER
+                    send_video_msg(client, msg, &flowInfo, buffer);
+                    printf("seqNum = %d.\n", flowInfo.seq_num); // TODO: REMOVER
                     nextMsg[i]++;
                     printf("updating.\n"); // TODO: REMOVER
                     if (nextMsg[i] < segment.cats[i].n_msgs) {
@@ -406,7 +414,7 @@ int send_video(cinfo_t* client, int videoID) {
 
         printf("trying to receive feedback.\n");  // TODO: REMOVER
         // try to receive feedback from client
-        if ((rcvd = recvfrom(client->ctrl_sockt, buffer, BUFFER_LEN, 0, 
+        if ((rcvd = recvfrom(client->ctrl_sockt, buffer, SEND_BUFFER_LEN, 0, 
              (struct sockaddr *) &client->caddr, &addrLen)) == -1) {
             #if DEBUG_MODE
             printf("Server: failed to receive feedback from new client.\n");
@@ -425,7 +433,7 @@ int send_video(cinfo_t* client, int videoID) {
             #endif
         }
 
-fp = NULL; // TEMPORARIO !!!!!!!!!!!!
+fp = NULL; // TODO: REMOVER TEMPORARIO !!!!!!!!!!!!
     }
 /**/
 
@@ -501,7 +509,9 @@ printf("preparint message.\n");
     hdr.seq_num = info->seq_num++;
 
     memcpy(buffer, &hdr, sizeof(mheader_t));
+printf("msg header was copied (%ld).\n", sizeof(mheader_t));
     memcpy(buffer + sizeof(mheader_t), msg, sizeof(message_t));
+printf("msg payload was copied (%ld).\n", sizeof(message_t));
 
 printf("Server: sending a data message to client.\n");
     

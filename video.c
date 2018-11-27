@@ -55,12 +55,12 @@ int load_segment(FILE* fp, segment_t* buffer) {
     }
 
     if (fp == NULL) {
-        printf("FAILED TO LOAD.\n");
+        printf("FINISHED.\n");
         return 1;
     }
 
     buffer->n_cat = NUM_CAT;
-    buffer->cats  = (category_t *) malloc(NUM_CAT * sizeof(category_t));
+    buffer->cats  = (category_t *) malloc(buffer->n_cat * sizeof(category_t));
     if (buffer->cats == NULL) {
         printf("FAILED TO LOAD.\n");
         return 1;
@@ -70,6 +70,10 @@ int load_segment(FILE* fp, segment_t* buffer) {
     buffer->cats[0].n_msgs   = 2;
     buffer->cats[0].msgs = (message_t *) malloc(buffer->cats[0].n_msgs * 
                                                 sizeof(message_t));
+    if (buffer->cats[0].msgs == NULL) {
+        printf("FAILED TO LOAD.\n");
+        return 1;
+    }
     // msgs from C1  
     for (i = 0; i < buffer->cats[0].n_msgs; i++) {
         buffer->cats[0].msgs[i].n_data = 2;
@@ -82,10 +86,14 @@ int load_segment(FILE* fp, segment_t* buffer) {
     }
 
 
-    buffer->cats[1].n_msgs   = 3;
     buffer->cats[1].msg_size = 1;
-    buffer->cats[1].msgs = (message_t *) malloc(buffer->cats[1].msg_size * 
+    buffer->cats[1].n_msgs   = 3;
+    buffer->cats[1].msgs = (message_t *) malloc(buffer->cats[1].n_msgs * 
                                                 sizeof(message_t));
+    if (buffer->cats[1].msgs == NULL) {
+        printf("FAILED TO LOAD.\n");
+        return 1;
+    }
     // msgs from C2
     for (i = 0; i < buffer->cats[1].n_msgs; i++) {
         buffer->cats[1].msgs[i].n_data = 2;

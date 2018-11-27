@@ -27,7 +27,7 @@ class NxtPayload:
 
 class NxtPacket:
     def __init__(self, msg):
-        seqNum  = bin2int(msg)
+        seqNum  = bin2int_reverse(msg)
         payload = msg[4:]
         self.header  = NxtHeader(seqNum)
         self.payload = NxtPayload(payload)
@@ -38,6 +38,13 @@ def bin2int(buffer):
     for i in range(4):
         vint = vint << 8
         vint += buffer[i]
+    return vint
+
+def bin2int_reverse(buffer):
+    vint = 0
+    for i in range(4):
+        vint = vint << 8
+        vint += buffer[3-i]
     return vint
 
 # goes from int to 4 bytes
@@ -88,12 +95,14 @@ def receive_and_play(vid, sockt, server):
     while True:
         # receives a message from server and send it to be displayed
         msg, addr = sockt.recvfrom(BUFFER_SIZE)
-        print("Client: received a msg")
         npckt = decompose_msg(msg)
+        print("Client: received a msg ({})".format(npckt.header.seq_num))
 
         if npckt.header.seq_num < nextSeqNum:
             # received a duplicate
-            print("Client: duplicated msg received")
+            print("Client: duplicated msg received", end=" ")
+            print("next = " + str(nextSeqNum))
+
         else:
             if npckt.header.seq_num == nextSeqNum:
                 # received the next expected msg

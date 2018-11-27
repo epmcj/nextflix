@@ -51,7 +51,6 @@ typedef struct {
 } segment_t;
 
 
-
 /**
  * Reads and stores the video metadata in the file fp.
  * Returns 1 in case of error and 0 otherwise.

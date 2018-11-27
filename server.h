@@ -22,6 +22,7 @@
 #define TIMEOUT_S       60
 #define TIMEOUT_US      0
 #define BUFFER_LEN      512
+#define SEND_BUFFER_LEN 8192
 #define VIDEO_LIST_PATH "./video/list.txt"
 
 #define LIST_CODE 7673 
