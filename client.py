@@ -15,7 +15,8 @@ EXIT_CODE = 9999
 NDEF_CODE =   -1
 
 class NxtHeader:
-    def __init__(self, seqNum):
+    def __init__(self, mtype, seqNum):
+        self.type    = mtype
         self.seq_num = seqNum
 
 class NxtPayload:
@@ -27,9 +28,10 @@ class NxtPayload:
 
 class NxtPacket:
     def __init__(self, msg):
-        seqNum  = bin2int_reverse(msg)
-        payload = msg[4:]
-        self.header  = NxtHeader(seqNum)
+        mtype   = msg[0]
+        seqNum  = bin2int_reverse(msg[1:4])
+        payload = msg[5:]
+        self.header  = NxtHeader(mtype, seqNum)
         self.payload = NxtPayload(payload)
 
 # goes from binary (4 bytes) to int
