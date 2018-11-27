@@ -5,8 +5,8 @@ import structures as st
 import codec as cod
 
 def main():
-	image = cv2.imread("amsterdam.jpg")
-	#image = cv2.imread("tiny.png")
+	image = cv2.imread("../assets/amsterdam.jpg")
+	#image = cv2.imread("../assets/tiny.png")
 	
 	data = cod.decomposeFrame(image,0)
 	
