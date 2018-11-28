@@ -1,5 +1,11 @@
 from common import *#int2bin_l, bin2int_l
 
+class NxtCode:
+    LIST_CODE = 7673 
+    PLAY_CODE = 8076
+    EXIT_CODE = 9999
+    NDEF_CODE =   -1
+
 class NxtType:
     INIT_TYPE = b'\x00\x00\x00\x00'
     DATA_TYPE = b'\x01\x00\x00\x00'
