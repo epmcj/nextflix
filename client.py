@@ -14,10 +14,21 @@ PLAY_CODE = 8076
 EXIT_CODE = 9999
 NDEF_CODE =   -1
 
+class NxtType:
+    INIT_TYPE = b'\x00'
+    DATA_TYPE = b'\x01'
+    FIN_TYPE  = b'\x02'
+    FBCK_TYPE = b'\x04'
+
 class NxtHeader:
     def __init__(self, mtype, seqNum):
         self.type    = mtype
         self.seq_num = seqNum
+
+    def to_buffer(self):
+        buffer  = self.type
+        buffer += int2bin_l(self.seq_num)
+        
 
 class NxtPayload:
     # MSG
@@ -29,10 +40,15 @@ class NxtPayload:
 class NxtPacket:
     def __init__(self, msg):
         mtype   = msg[0]
-        seqNum  = bin2int_reverse(msg[1:4])
+        seqNum  = bin2int_l(msg[1:4])
         payload = msg[5:]
         self.header  = NxtHeader(mtype, seqNum)
         self.payload = NxtPayload(payload)
+
+    def to_buffer(self):
+        buffer  = self.header.to_buffer()
+        buffer += self.payload
+        return buffer
 
 # goes from binary (4 bytes) to int
 def bin2int(buffer):
@@ -42,7 +58,7 @@ def bin2int(buffer):
         vint += buffer[i]
     return vint
 
-def bin2int_reverse(buffer):
+def bin2int_l(buffer):
     vint = 0
     for i in range(4):
         vint = vint << 8
@@ -52,6 +68,9 @@ def bin2int_reverse(buffer):
 # goes from int to 4 bytes
 def int2bin(value):
     return value.to_bytes(4, byteorder="big")
+
+def int2bin_l(value):
+    return value.to_bytes(4, byteorder="little")
 
 # receives video list from server
 def get_video_list(sockt, server):
@@ -88,9 +107,12 @@ def receive_and_play(vid, sockt, server):
     sockt.sendto(int2bin(PLAY_CODE) + int2bin(vid), server)
     
     msg, addr  = sockt.recvfrom(BUFFER_SIZE)
-    nextSeqNum = bin2int(msg)
-    print("First seqNum = " + str(nextSeqNum))
-    sockt.sendto(msg, server)
+    npckt = decompose_msg(msg)
+    # nextSeqNum = bin2int(msg)
+    # print("First seqNum = " + str(nextSeqNum))
+    if npckt.header.type == NxtType.INIT_TYPE:
+        print("First seqNum = " + str(npckt.header.seq_num))
+        sockt.sendto(msg, server)
 
     nextDeadline = time.time() + NEXT_TIMEOUT
     
@@ -98,7 +120,13 @@ def receive_and_play(vid, sockt, server):
         # receives a message from server and send it to be displayed
         msg, addr = sockt.recvfrom(BUFFER_SIZE)
         npckt = decompose_msg(msg)
-        print("Client: received a msg ({})".format(npckt.header.seq_num))
+
+        if npckt.header.type == NxtType.FIN_TYPE:
+            # ending routine
+            break
+        
+        if npckt.header.type == NxtType.DATA_TYPE:
+            print("Client: received a msg ({})".format(npckt.header.seq_num))
 
         if npckt.header.seq_num < nextSeqNum:
             # received a duplicate
