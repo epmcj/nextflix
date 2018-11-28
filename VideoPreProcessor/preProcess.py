@@ -26,14 +26,14 @@ def preProcess(fileName,ncat,n_msgs,msg_redundancies,msg_sizes_base,expoent,fixe
 	width = int(vidcap.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH))
 	frameRate = vidcap.get(cv2.cv.CV_CAP_PROP_FPS)
 	
-	i=1 #frame number
+	i=0 #frame number
 	
 	Cats = [[] for j in range(ncat)] #the scructure that will carry all data about the video
 	
 	while True:
 		#get the next frame
 		success,frame = vidcap.read()
-		print('Starting a new frame')
+		print('Starting frame '+str(i))
 		if success:
 			#pre-process frame
 			data = cod.decomposeFrame(frame,i)

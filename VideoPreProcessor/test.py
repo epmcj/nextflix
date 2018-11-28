@@ -45,6 +45,7 @@ def main():
 	
 	if(not success):
 		print('Error')
+		exit(0)
 	else:
 		cv2.namedWindow("original")
 		cv2.namedWindow("comprimida")
