@@ -238,7 +238,7 @@ int send_video(cinfo_t* client, int videoID) {
     message_t *msg;
     flow_t flowInfo;
     feedback_t *fb;
-    mheader_t phdr;
+    mheader_t phdr, *rhdr;
     clock_t currTime, segDeadline;//, **ttable;
     ttable_entry_t *ttable;
     struct timeval tv;
@@ -349,8 +349,14 @@ int send_video(cinfo_t* client, int videoID) {
         if ((rcvd = recvfrom(client->ctrl_sockt, buffer, SEND_BUFFER_LEN, 0, 
              (struct sockaddr *) &client->caddr, &addrLen)) > -1) {
             // answer must be the first sequence number
-            if (chars_to_int(buffer) == flowInfo.seq_num) {
+            rhdr = read_header(buffer);
+            if (rhdr->seq_num == flowInfo.seq_num) {
                 break;
+            } else {
+                #if DEBUG_MODE
+                printf("Server: received different seqNum (r:%d, e:%d).\n", 
+                       rhdr->seq_num, flowInfo.seq_num);
+                #endif
             }
         }
         #if DEBUG_MODE
@@ -430,7 +436,7 @@ int send_video(cinfo_t* client, int videoID) {
             printf("Server: received a feedback msg.\n");
             #endif
             
-            fb = (feedback_t *)buffer;
+            fb = (feedback_t *)(buffer + sizeof(mheader_t));
             
             #if DEBUG_MODE
             printf("Server: client lost %d messages.\n", fb->lostMsgs);
@@ -446,7 +452,20 @@ fp = NULL; // TODO: REMOVER TEMPORARIO !!!!!!!!!!!!
     #endif
 
     // finishing routine
-
+    phdr.type    = FIN_TYPE;
+    phdr.seq_num = flowInfo.seq_num;
+    // int_to_4chars(flowInfo.seq_num, buffer);
+    msize = create_msg(&phdr, NULL, 0, buffer);
+    
+    if (sendto(client->ctrl_sockt, buffer, msize, 0, 
+        (struct sockaddr *) &client->caddr, 
+        sizeof(client->caddr)) < 0) {
+        #if DEBUG_MODE
+        printf("Server: failed to send first seqNum to client.\n");
+        #endif
+        // fclose(fp);
+        return 1;
+    }
 
     // reseting control socket timeout
     tv.tv_sec  = TIMEOUT_S;
