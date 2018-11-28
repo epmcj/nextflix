@@ -144,7 +144,7 @@ void* handle_client(void* argument) {
         exit(EXIT_FAILURE);
     } 
 
-    // 
+    // main loop for client requisitions
     while (1) {
         if ((rcvd = recvfrom(client->ctrl_sockt, buffer, BUFFER_LEN, 0, 
              (struct sockaddr *) &client->caddr, &addrLen)) == -1) {
@@ -231,13 +231,14 @@ void* handle_feedback(void* parameters) {
 
 int send_video(cinfo_t* client, int videoID) {
     char buffer[SEND_BUFFER_LEN];
-    int i, addrLen, rcvd, *nextMsg;
+    int i, addrLen, rcvd, msize, *nextMsg;
     uint32_t seqNum;
     video_metadata_t vinfo;
     segment_t segment;
     message_t *msg;
     flow_t flowInfo;
     feedback_t *fb;
+    mheader_t phdr;
     clock_t currTime, segDeadline;//, **ttable;
     ttable_entry_t *ttable;
     struct timeval tv;
@@ -330,10 +331,13 @@ int send_video(cinfo_t* client, int videoID) {
     #endif
     // send the first sequence number (and assure that the client has received 
     // it)
-    int_to_4chars(flowInfo.seq_num, buffer);
+    phdr.type    = INIT_TYPE;
+    phdr.seq_num = flowInfo.seq_num;
+    // int_to_4chars(flowInfo.seq_num, buffer);
+    msize = create_msg(&phdr, NULL, 0, buffer);
     i = 0;
     while (i < MAX_TRY) {
-        if (sendto(client->ctrl_sockt, buffer, 4, 0, 
+        if (sendto(client->ctrl_sockt, buffer, msize, 0, 
             (struct sockaddr *) &client->caddr, 
             sizeof(client->caddr)) < 0) {
             #if DEBUG_MODE
@@ -440,6 +444,10 @@ fp = NULL; // TODO: REMOVER TEMPORARIO !!!!!!!!!!!!
     #if DEBUG_MODE
     printf("Server: video was sent.\n");
     #endif
+
+    // finishing routine
+
+
     // reseting control socket timeout
     tv.tv_sec  = TIMEOUT_S;
     tv.tv_usec = TIMEOUT_US;
@@ -505,17 +513,25 @@ int send_video_list(cinfo_t* client) {
  **/
 int send_video_msg(cinfo_t* c, message_t* msg, flow_t* info, char* buffer) {
     mheader_t hdr;
-printf("preparint message.\n");
+    int msize;
+
+    printf("preparing message.\n");
+    // header
+    hdr.type    = DATA_TYPE;
     hdr.seq_num = info->seq_num++;
 
-    memcpy(buffer, &hdr, sizeof(mheader_t));
-printf("msg header was copied (%ld).\n", sizeof(mheader_t));
-    memcpy(buffer + sizeof(mheader_t), msg, sizeof(message_t));
-printf("msg payload was copied (%ld).\n", sizeof(message_t));
+//     write_header(&hdr, buffer);
+//     // memcpy(buffer, &hdr, sizeof(mheader_t));
+// printf("msg header was copied (%ld).\n", sizeof(mheader_t));
+//     // payload
+//     memcpy(buffer + sizeof(mheader_t), msg, sizeof(message_t));
+// printf("msg payload was copied (%ld).\n", sizeof(message_t));
 
-printf("Server: sending a data message to client.\n");
+    msize = create_msg(&hdr, (void *)msg, sizeof(message_t), buffer);
+
+    printf("Server: sending a data message to client.\n");
     
-    if (sendto(c->data_sockt, buffer, 4, 0, 
+    if (sendto(c->data_sockt, buffer, msize, 0, 
         (struct sockaddr *) &c->caddr, sizeof(c->caddr)) < 0) {
         #if DEBUG_MODE
         printf("Server: failed to send data to client.\n");

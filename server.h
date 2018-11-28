@@ -15,6 +15,7 @@
 #include "tools.h"
 #include "video.h"
 #include "ttable.h"
+#include "message.h"
 
 #define MAX_CONNECTIONS 5
 #define MAX_TRY         3
@@ -44,10 +45,6 @@ typedef struct {
 typedef struct {
     uint32_t seq_num;
 } flow_t;
-
-typedef struct {
-    uint32_t seq_num;
-} mheader_t;
 
 typedef struct {
     int length;
