@@ -1,15 +1,29 @@
+import sys
+sys.path.insert(0,'../VideoUtils')
+
 import cv2
 import numpy as np
 import random
 import structures as st
 import codec as cod
+import dataSet as ds
 
 def main():
 	image = cv2.imread("../assets/amsterdam.jpg")
 	#image = cv2.imread("../assets/tiny.png")
 	
 	data = cod.decomposeFrame(image,0)
-	
+	pLen = len(data.channel[0].list[0].P_column)
+	qLen = len(data.channel[0].list[0].Q_line)
+	nElements = len(data.channel[0].list)
+	print('Size of Data: '+str((pLen+qLen+1)*data.totalSize()))
+	print('toFloatArray')
+	floatArray = data.toFloatArray()
+	print('Length of FloatArray: '+str(len(floatArray)))
+	data = st.Data([st.Channel([]),st.Channel([]),st.Channel([])],0)
+	print('back from FloatArray')
+	data = ds.dataFromFloatArray(floatArray,pLen,qLen,nElements,3,0)
+	print('Size of Data: '+str((pLen+qLen+1)*data.totalSize()))
 	#only for tests:
 	#data.shuffleData()
 	#data.loseData(100)
@@ -29,10 +43,10 @@ def main():
 	
 	d_msg = 0
 	t_msg = 0
-	data2 = st.Data(st.Channel([]),st.Channel([]),st.Channel([]),0)
+	data2 = st.Data([st.Channel([]),st.Channel([]),st.Channel([])],0)
 	for cat in cats:
 		for msg in cat:
-			if random.uniform(0, 1)<=0.9:#10% of msgs lost
+			if random.uniform(0, 1)<=1:#0.9:#10% of msgs lost
 				data2.insertData(msg)
 			else:
 				d_msg = d_msg+1

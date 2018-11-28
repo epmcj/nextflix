@@ -11,7 +11,7 @@ import cv2
 
 inputFile = '../assets/sample2.mp4'
 saveFile = '../assets/sample2.p'
-frameRate = 60.0
+frameRate = 30.0
 
 success,Cats = ds.load(saveFile)
 
@@ -29,7 +29,31 @@ buff.finished = True
 
 cv2.namedWindow("Nextflix")	
 
+#------------------------------------------------------------------------------------
+frameList = []
+
+
 while True:
+	#wait for a new frame of for transmission end
+	while True:
+		cod = buff.getCode()
+		if cod != 1:
+			#there is a frame to show or the transmission finished
+			break
+	
+	if cod==-1:
+		#the transmission is finished
+		break
+	
+	#get next frame
+	cod,image = buff.read()
+	
+	frameList.append(image)
+#------------------------------------------------------------------------------------
+start = time.time()
+#while True:
+while frameList:
+	'''
 	#wait for a new frame of for transmission end
 	while True:
 		cod = buff.getCode()
@@ -45,12 +69,13 @@ while True:
 	cod,image = buff.read()
 	#display the frame
 	cv2.imshow("Nextflix", image)
-	
+	'''
+	cv2.imshow("Nextflix", frameList.pop(0))
 	#wait until the next frame
-	#if cv2.waitKey(int(1000/frameRate)) != -1:
-	if cv2.waitKey(27) != -1:
+	if cv2.waitKey(int(1000/frameRate)) != -1:
 		#if the user pressed a key, quit
 		buff.quit = True
 		break
-
+end = time.time()
+print(end-start)
 cv2.destroyWindow("Nextflix")
