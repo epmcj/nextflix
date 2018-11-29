@@ -22,7 +22,7 @@ class Buff:
 		
 		self.maxSize = maxSize
 		#creates the structure for frame 0 data
-		self.dataList.append(st.Data(st.Channel([]),st.Channel([]),st.Channel([]),0))
+		self.dataList.append(st.Data([st.Channel([]),st.Channel([]),st.Channel([])],0))
 	
 	def read(self):
 		code = self.getCode()
@@ -33,8 +33,8 @@ class Buff:
 			self.firstFrame = self.firstFrame+1
 			#be sure that the list will never be empty
 			if not self.dataList:
-				self.dataList.append(st.Data(\
-					st.Channel([]),st.Channel([]),st.Channel([]),self.firstFrame))
+				self.dataList.append(st.Data([\
+					st.Channel([]),st.Channel([]),st.Channel([])],self.firstFrame))
 			
 			#recomposes the frame based on the received data
 			success, frame = cod.composeFrame(data)
@@ -76,8 +76,8 @@ class Buff:
 					#creates the structures for each frame
 					#(data.frame+1 because of python)
 					for frameNum in range(lastFrame+1,data.frame+1):
-						self.dataList.append(st.Data(\
-							st.Channel([]),st.Channel([]),st.Channel([]),frameNum))
+						self.dataList.append(st.Data([\
+							st.Channel([]),st.Channel([]),st.Channel([])],frameNum))
 				
 				#insert the data in the right place
 				self.dataList[data.frame-self.firstFrame].insertData(data)

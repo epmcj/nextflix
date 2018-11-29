@@ -27,6 +27,10 @@ class ChannelElement:
 	#of this data element
 	def __getitem__(self, k):
 		return self.D_value
+	
+	#Methods for dumping into a file
+	def toFloatArray(self):
+		return self.P_column.tolist()+[self.D_value]+self.Q_line.tolist()
 
 ##################################################################################################
 #single channel inside a data object
@@ -125,13 +129,22 @@ class Channel:
 					S = S-weights.pop(i)
 					break
 		return Channel(subList)
+	
+	#Methods for dumping into a file
+	
+	def toFloatArray(self):
+		floatArray = []
+		for chn in self.list:
+			floatArray = floatArray + chn.toFloatArray()
+		return floatArray
+
 ##################################################################################################
 #slice of a frame (may be the entire frame)
 class Data:
-	def __init__(self, rChannel, gChannel, bChannel, frameNum):
-		if((len(rChannel)!=len(gChannel)) or (len(gChannel)!=len(bChannel))):
+	def __init__(self, channels, frameNum):
+		if((len(channels[0])!=len(channels[1])) or (len(channels[0])!=len(channels[2]))):
 			print('Inconsistant data')
-		self.channel = [bChannel, gChannel, rChannel]
+		self.channel = channels
 		self.frame = frameNum
 	
 	#dimensions of the frame
@@ -142,8 +155,7 @@ class Data:
 	def isEmpty(self):
 		return self.channel[0].isEmpty()
 	
-	#assumes this object has the same quantity of data about each channel
-	def size(self):
+	def totalSize(self):
 		s = 0
 		for channel in self.channel:
 			s = s + len(self.channel[0])
@@ -171,17 +183,17 @@ class Data:
 	
 	#select [length] elements starting with [first]
 	def getSubDataset(self,first,length):
-		rChannel = self.channel[2].getSubDataset(first,length)
-		gChannel = self.channel[1].getSubDataset(first,length)
-		bChannel = self.channel[0].getSubDataset(first,length)
-		return(Data(rChannel, gChannel, bChannel, self.frame))
+		subChannels = []
+		for channel in self.channel:
+			subChannels.append(channel.getSubDataset(first,length))
+		return(Data(subChannels, self.frame))
 	
 	#select [length] elements from the interval [first,last)
 	def getRandomSubDataset(self,first,last,length,expoent,fixed):
 		subChannels = []
 		for channel in self.channel:
 			subChannels.append(channel.getRandomSubDataset(first,last,length,expoent,fixed))
-		return(Data(subChannels[2],subChannels[1],subChannels[0],self.frame))
+		return(Data(subChannels,self.frame))
 	
 	#segments the data of this object within ncat categories. Each category is formed by
 	#n_msgs[cat] messages with msg_sizes[cat] elements and with 100*msg_redundancies[cat]%
@@ -243,7 +255,7 @@ class Data:
 					ok = ok and (n_msgs[cat]>0) and (msg_sizes[cat]>0)\
 						and (msg_redundancies[cat]>=0)
 					size = n_msgs[cat]*int(math.floor((1-msg_redundancies[cat])*msg_sizes[cat]))
-				if (not ok) or (size>self.size()):
+				if (not ok) or (size>self.totalSize()):
 					return False
 				else:
 					return True
@@ -251,9 +263,16 @@ class Data:
 	#generates a valid configuration for the Msg Metadata according to the informed parameters.
 	#msg_sizes_base is the desired proportion between the elements of msg_sizes
 	def generateNiceMsg_Sizes(self,ncat, n_msgs, msg_redundancies, msg_sizes_base):
-		msg_sizes = np.ceil(float(self.size()\
+		msg_sizes = np.ceil(float(self.totalSize()\
 			/np.matmul(np.array(msg_sizes_base,dtype=float),\
 				np.matmul(np.diag(1-np.array(msg_redundancies,dtype=float)),\
 					np.array(n_msgs,dtype=float).T)))\
 			*np.array(msg_sizes_base,dtype=float))
 		return np.array(msg_sizes,dtype=int)
+	
+	def toFloatArray(self):
+		floatArray = []
+		for chn in self.channel:
+			floatArray = floatArray + chn.toFloatArray()
+		return floatArray
+

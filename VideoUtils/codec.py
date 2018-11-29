@@ -3,14 +3,10 @@ import structures as st
 
 #return a data object containing an entire frame
 def decomposeFrame(frame,frameNum):
-	red = frame[:,:,2]
-	green = frame[:,:,1]
-	blue = frame[:,:,0]
-	return(st.Data(\
-		decomposeMatrix(red),\
-		decomposeMatrix(green),\
-		decomposeMatrix(blue),\
-		frameNum))
+	channelList = []
+	for i in range(frame.shape[2]):
+		channelList.append(decomposeMatrix(frame[:,:,i]))
+	return(st.Data(channelList, frameNum))
 
 #apply svd decomposition to a single channel of an image.
 def decomposeMatrix(mat):
@@ -28,18 +24,12 @@ def composeFrame(data):
 		#get the dimensions
 		height, width = data.dim()
 		#create blank image
-		frame = np.zeros((height,width,3), np.uint8)
+		frame = np.zeros((height,width,len(data.channel)), np.uint8)
 	
 		#recompose each channel
-		red = composeMatrix(data.channel[2]);
-		green = composeMatrix(data.channel[1]);
-		blue = composeMatrix(data.channel[0]);
-	
-		#compose the entire frame
-		frame[:,:,2] = np.uint8(red)
-		frame[:,:,1] = np.uint8(green)
-		frame[:,:,0] = np.uint8(blue)
-	
+		for i in range(len(data.channel)):
+			frame[:,:,i] = np.uint8(composeMatrix(data.channel[i]));
+		
 		return True,frame
 
 #recompose a simple 1-channel image (double)
@@ -59,4 +49,7 @@ def composeMatrix(channel):
 		Q[i,:] = channel.list[i].Q_line.flatten()
 	
 	#wayback from svd
-	return(np.matmul(np.matmul(P, np.diag(D)), Q))
+	m = np.matmul(np.matmul(P, np.diag(D)), Q)
+	
+	return(m)
+
