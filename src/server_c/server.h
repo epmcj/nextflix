@@ -11,7 +11,6 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include "socket_sup.h"
 #include "tools.h"
 #include "video.h"
 #include "ttable.h"
@@ -20,6 +19,8 @@
 #define MAX_CONNECTIONS 5
 #define MAX_TRY         3
 #define HYPER_PERIOD    4 // seconds
+#define HP_DECREASE     (10/100) // 10 %
+#define HP_INCREASE     (50/100) // 50 %
 #define TIMEOUT_S       60
 #define TIMEOUT_US      0
 #define BUFFER_LEN      512

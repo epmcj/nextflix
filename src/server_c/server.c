@@ -246,16 +246,18 @@ int send_video(cinfo_t* client, int videoID) {
     ttable_entry_t *ttable;
     struct timeval tv;
     FILE *fp;
-    uint32_t sentMsgs, lostMsgs;
+    uint32_t hpsentMsgs, tsentMsgs, lostMsgs, missedDl, msgsPerHP;
 
     #if DEBUG_MODE
     printf("Server: starting to send a video.\n");
     #endif
 
     // initialization of variables for send rate adjustment
-    hperiod  = HYPER_PERIOD;
-    sentMsgs = 0;
-    lostMsgs = 0;
+    hperiod    = HYPER_PERIOD;
+    lostMsgs   = 0;
+    tsentMsgs  = 0;
+    hpsentMsgs = 0;
+    missedDl   = 0;
 
     // first uses the the buffer to store the file path.
     buffer[0] = 0;
@@ -278,8 +280,10 @@ int send_video(cinfo_t* client, int videoID) {
     get_video_metadata(fp, &vinfo);
     #if DEBUG_MODE
     printf("video has %d categories with ", vinfo.n_cat);
+    msgsPerHP = 0;
     for (i = 0; i < vinfo.n_cat; i++) {
-        printf("%d ", vinfo.cat[i].n_msgs);
+        msgsPerHP += vinfo.cat[i].n_msgs;
+        // printf("%d ", vinfo.cat[i].n_msgs);
     }
     printf("messages each.\n");
     #endif
@@ -404,12 +408,9 @@ int send_video(cinfo_t* client, int videoID) {
                 } else if (currTime > ttable[i].rt) {
                     // can send this message
                     msg = &segment.cats[i].msgs[nextMsg[i]];
-                    // printf("msg has %d data.\n", msg->n_data); // TODO: REMOVER
-                    // printf("seqNum = %d.\n", flowInfo.seq_num); // TODO: REMOVER
                     if (send_video_msg(client, msg, &flowInfo, buffer) == 0) {
-                        sentMsgs += 1;
+                        hpsentMsgs += 1;
                     }
-                    // printf("seqNum = %d.\n", flowInfo.seq_num); // TODO: REMOVER
                     nextMsg[i]++;
                     printf("updating.\n"); // TODO: REMOVER
                     if (nextMsg[i] < segment.cats[i].n_msgs) {
@@ -425,8 +426,29 @@ int send_video(cinfo_t* client, int videoID) {
             }
         }
 
-        // hiperperiod finalization routine
+        // hiperperiod finalization routine ---
         currTime = clock();
+        diffTime = segDeadline - currTime;
+        // update global statistics
+        tsentMsgs += hpsentMsgs;
+        missedDl  += (msgsPerHP - hpsentMsgs);
+        // check if it is possible to reduce the hyperperiod
+        if (diffTime > (hperiod/HP_DECREASE)) {
+            hperiod -= (hperiod/HP_DECREASE);
+            #if DEBUG_MODE
+            printf("Server: reducing hyperperiod.\n");
+            #endif
+
+        } else if (hpsentMsgs < msgsPerHP) {
+            // server was not able to sent all messages
+            hperiod += (hperiod/HP_INCREASE);
+            #if DEBUG_MODE
+            printf("Server: increasing hyperperiod.\n");
+            #endif
+        }
+
+        hpsentMsgs = 0;
+
         // try to receive feedback from client
         if ((rcvd = recvfrom(client->ctrl_sockt, buffer, SEND_BUFFER_LEN, 0, 
              (struct sockaddr *) &client->caddr, &addrLen)) == -1) {
@@ -442,6 +464,7 @@ int send_video(cinfo_t* client, int videoID) {
             
             fb = (feedback_t *)(buffer + sizeof(mheader_t));
             lostMsgs += fb->lostMsgs;
+            // REDUZIR O NUMERO DE CATEGORIAS SE A PERDA FOR GRANDE?
 
             #if DEBUG_MODE
             printf("Server: client lost %d messages.\n", fb->lostMsgs);
@@ -470,7 +493,7 @@ fp = NULL; // TODO: REMOVER TEMPORARIO !!!!!!!!!!!!
         return 1;
     }
 
-    printf("Server sent %d messages, client lost %d messages.\n", sentMsgs, 
+    printf("Server sent %d messages, client lost %d messages.\n", tsentMsgs, 
            lostMsgs);
 
     // reseting control socket timeout
