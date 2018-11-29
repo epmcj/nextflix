@@ -11,7 +11,19 @@ class NxtType:
     DATA_TYPE = b'\x01\x00\x00\x00'
     FIN_TYPE  = b'\x02\x00\x00\x00'
     FBCK_TYPE = b'\x04\x00\x00\x00'
-    CTRL_TYPE = b'\x05\x00\x00\x00'
+
+    @classmethod
+    def to_string(self, mtype):
+        if mtype == self.INIT_TYPE:
+            return "INIT_TYPE"
+        elif mtype == self.DATA_TYPE:
+            return "DATA_TYPE"
+        elif mtype == self.FIN_TYPE:
+            return "FIN_TYPE"
+        elif mtype == self.FBCK_TYPE:
+            return "FBCK_TYPE"
+        return "UNKN_TYPE"
+
 
 class NxtHeader:
     def __init__(self, mtype, seqNum):

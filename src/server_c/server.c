@@ -11,13 +11,26 @@ void server_listen(int port) {
     srand(time(NULL));
 
     // creating socket to receive solicitations from clients
-    sockt = create_and_bind_socket(port);
-    if (sockt == 0) { 
+    sockt =  socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (socket == 0) { 
         #if DEBUG_MODE
         printf("Server: failed to create socket.\n"); 
         #endif
         exit(EXIT_FAILURE); 
     }
+
+    memset(&saddr, 0, sizeof(saddr));
+    saddr.sin_family      = AF_INET;
+    saddr.sin_addr.s_addr = INADDR_ANY;
+    saddr.sin_port        = htons(port);
+
+    if (bind(sockt, (struct sockaddr *) &saddr, sizeof(saddr)) < 0) {
+        #if DEBUG_MODE
+        printf("Server: failed to bind client socket.\n"); 
+        #endif
+        exit(EXIT_FAILURE); 
+    }
+
 
     while (1) {
         #if DEBUG_MODE
@@ -106,16 +119,6 @@ void* handle_client(void* argument) {
         #endif
         exit(EXIT_FAILURE);
     }
-
-    // tv.tv_sec  = TIMEOUT_S;
-    // tv.tv_usec = 0;
-    // if (setsockopt(client->data_sockt, SOL_SOCKET, SO_RCVTIMEO, &tv, 
-    //     sizeof(tv)) < 0) {
-    //     #if DEBUG_MODE
-    //     printf("Server: could not set socket timeout.\n");
-    //     #endif
-    //     exit(EXIT_FAILURE);
-    // }
 
     // finding an available port
     memset(&saddr, 0, sizeof(saddr));
@@ -236,25 +239,23 @@ int send_video(cinfo_t* client, int videoID) {
     video_metadata_t vinfo;
     segment_t segment;
     message_t *msg;
+    mheader_t phdr, *rhdr;
     flow_t flowInfo;
     feedback_t *fb;
-    mheader_t phdr, *rhdr;
-    clock_t currTime, segDeadline;//, **ttable;
+    clock_t currTime, diffTime, segDeadline, hperiod;
     ttable_entry_t *ttable;
     struct timeval tv;
     FILE *fp;
+    uint32_t sentMsgs, lostMsgs;
 
     #if DEBUG_MODE
     printf("Server: starting to send a video.\n");
     #endif
 
-    // segment = (segment_t *) malloc(sizeof(segment_t));
-    // if (segment == NULL) {
-    //     #if DEBUG_MODE
-    //     printf("Server: could not allocate memory for segment.\n");
-    //     #endif
-    //     return 1;
-    // }
+    // initialization of variables for send rate adjustment
+    hperiod  = HYPER_PERIOD;
+    sentMsgs = 0;
+    lostMsgs = 0;
 
     // first uses the the buffer to store the file path.
     buffer[0] = 0;
@@ -317,7 +318,7 @@ int send_video(cinfo_t* client, int videoID) {
 
     // filling the increments (they are fixed for a video)
     for (i = 0; i < vinfo.n_cat; i++) {
-        ttable[i].inc = (HYPER_PERIOD * CLOCKS_PER_SEC) / vinfo.cat[i].n_msgs;
+        ttable[i].inc = (hperiod * CLOCKS_PER_SEC) / vinfo.cat[i].n_msgs;
     }
 
     #if DEBUG_MODE
@@ -333,8 +334,8 @@ int send_video(cinfo_t* client, int videoID) {
     // it)
     phdr.type    = INIT_TYPE;
     phdr.seq_num = flowInfo.seq_num;
-    // int_to_4chars(flowInfo.seq_num, buffer);
     msize = create_msg(&phdr, NULL, 0, buffer);
+
     i = 0;
     while (i < MAX_TRY) {
         if (sendto(client->ctrl_sockt, buffer, msize, 0, 
@@ -382,7 +383,7 @@ int send_video(cinfo_t* client, int videoID) {
             ttable[i].dl = ttable[i].rt + ttable[i].inc;
         }
 
-        segDeadline = clock() + (HYPER_PERIOD * CLOCKS_PER_SEC);
+        segDeadline = clock() + (hperiod * CLOCKS_PER_SEC);
         while((currTime = clock()) < segDeadline) {
             for (i = 0; i < vinfo.n_cat; i++) {
                 if (currTime > ttable[i].dl) {
@@ -403,10 +404,12 @@ int send_video(cinfo_t* client, int videoID) {
                 } else if (currTime > ttable[i].rt) {
                     // can send this message
                     msg = &segment.cats[i].msgs[nextMsg[i]];
-                    printf("msg has %d data.\n", msg->n_data); // TODO: REMOVER
-                    printf("seqNum = %d.\n", flowInfo.seq_num); // TODO: REMOVER
-                    send_video_msg(client, msg, &flowInfo, buffer);
-                    printf("seqNum = %d.\n", flowInfo.seq_num); // TODO: REMOVER
+                    // printf("msg has %d data.\n", msg->n_data); // TODO: REMOVER
+                    // printf("seqNum = %d.\n", flowInfo.seq_num); // TODO: REMOVER
+                    if (send_video_msg(client, msg, &flowInfo, buffer) == 0) {
+                        sentMsgs += 1;
+                    }
+                    // printf("seqNum = %d.\n", flowInfo.seq_num); // TODO: REMOVER
                     nextMsg[i]++;
                     printf("updating.\n"); // TODO: REMOVER
                     if (nextMsg[i] < segment.cats[i].n_msgs) {
@@ -422,12 +425,13 @@ int send_video(cinfo_t* client, int videoID) {
             }
         }
 
-        printf("trying to receive feedback.\n");  // TODO: REMOVER
+        // hiperperiod finalization routine
+        currTime = clock();
         // try to receive feedback from client
         if ((rcvd = recvfrom(client->ctrl_sockt, buffer, SEND_BUFFER_LEN, 0, 
              (struct sockaddr *) &client->caddr, &addrLen)) == -1) {
             #if DEBUG_MODE
-            printf("Server: failed to receive feedback from new client.\n");
+            printf("Server: feedback msg was not received.\n");
             #endif
 
         } else {
@@ -437,7 +441,8 @@ int send_video(cinfo_t* client, int videoID) {
             #endif
             
             fb = (feedback_t *)(buffer + sizeof(mheader_t));
-            
+            lostMsgs += fb->lostMsgs;
+
             #if DEBUG_MODE
             printf("Server: client lost %d messages.\n", fb->lostMsgs);
             #endif
@@ -445,7 +450,6 @@ int send_video(cinfo_t* client, int videoID) {
 
 fp = NULL; // TODO: REMOVER TEMPORARIO !!!!!!!!!!!!
     }
-/**/
 
     #if DEBUG_MODE
     printf("Server: video was sent.\n");
@@ -454,18 +458,20 @@ fp = NULL; // TODO: REMOVER TEMPORARIO !!!!!!!!!!!!
     // finishing routine
     phdr.type    = FIN_TYPE;
     phdr.seq_num = flowInfo.seq_num;
-    // int_to_4chars(flowInfo.seq_num, buffer);
     msize = create_msg(&phdr, NULL, 0, buffer);
     
     if (sendto(client->ctrl_sockt, buffer, msize, 0, 
         (struct sockaddr *) &client->caddr, 
         sizeof(client->caddr)) < 0) {
         #if DEBUG_MODE
-        printf("Server: failed to send first seqNum to client.\n");
+        printf("Server: failed to send fin msg to client.\n");
         #endif
         // fclose(fp);
         return 1;
     }
+
+    printf("Server sent %d messages, client lost %d messages.\n", sentMsgs, 
+           lostMsgs);
 
     // reseting control socket timeout
     tv.tv_sec  = TIMEOUT_S;
@@ -534,22 +540,11 @@ int send_video_msg(cinfo_t* c, message_t* msg, flow_t* info, char* buffer) {
     mheader_t hdr;
     int msize;
 
-    printf("preparing message.\n");
     // header
     hdr.type    = DATA_TYPE;
     hdr.seq_num = info->seq_num++;
 
-//     write_header(&hdr, buffer);
-//     // memcpy(buffer, &hdr, sizeof(mheader_t));
-// printf("msg header was copied (%ld).\n", sizeof(mheader_t));
-//     // payload
-//     memcpy(buffer + sizeof(mheader_t), msg, sizeof(message_t));
-// printf("msg payload was copied (%ld).\n", sizeof(message_t));
-
     msize = create_msg(&hdr, (void *)msg, sizeof(message_t), buffer);
-
-    printf("Server: sending a data message to client.\n");
-    
     if (sendto(c->data_sockt, buffer, msize, 0, 
         (struct sockaddr *) &c->caddr, sizeof(c->caddr)) < 0) {
         #if DEBUG_MODE
@@ -557,8 +552,6 @@ int send_video_msg(cinfo_t* c, message_t* msg, flow_t* info, char* buffer) {
         #endif
         return 1;
     }
-
-printf("Server: message sent.\n");
-
+    printf("Server: message sent.\n");
     return 0;
 }

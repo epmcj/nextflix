@@ -2,9 +2,9 @@ import sys
 import time
 import socket
 import random
-from nxt    import *
-from common import *
-from olist  import OrderedList
+from src.client_py.nxt    import *
+from src.client_py.common import *
+from src.client_py.olist  import OrderedList
 
 BUFFER_SIZE     = 8192
 SOCKET_TIMEOUT  = 2.0 # in seconds
@@ -14,12 +14,12 @@ NEXT_TIMEOUT    = 0.5 # in seconds
 # receives video list from server
 def get_video_list(sockt, server):
     vlist = []
-    sockt.sendto(int2bin_b(NxtCode.LIST_CODE), server)
+    sockt.sendto(int2bin_l(NxtCode.LIST_CODE), server)
     msg, addr = sockt.recvfrom(BUFFER_SIZE)
-    numVideos = bin2int_b(msg)
+    numVideos = bin2int_l(msg)
     for i in range(numVideos):
         msg, addr = sockt.recvfrom(BUFFER_SIZE)
-        vid   = bin2int_b(msg[0:4])
+        vid   = bin2int_l(msg[0:4])
         title = msg[4:].decode("ascii")
         vlist.append([vid, title])
     return vlist
@@ -38,11 +38,11 @@ def receive_and_play(vid, sockt, server):
     nextDeadline = 0
     waitingList  = OrderedList(unique=True)
     
-    sockt.sendto(int2bin_b(NxtCode.PLAY_CODE) + int2bin_b(vid), server)
+    sockt.sendto(int2bin_l(NxtCode.PLAY_CODE) + int2bin_l(vid), server)
     
-    msg, addr  = sockt.recvfrom(BUFFER_SIZE)
-    print("Received msg = " + str(msg) + " size = " + str(len(msg)))
-    npckt = NxtPacket(msg)
+    # msg, addr  = sockt.recvfrom(BUFFER_SIZE)
+    # print("Received msg with size = " + str(len(msg)))
+    # npckt = NxtPacket(msg)
 
     nextDeadline = time.time() + NEXT_TIMEOUT
     
@@ -50,8 +50,8 @@ def receive_and_play(vid, sockt, server):
         # receives a message from server and send it to be displayed
         msg, addr = sockt.recvfrom(BUFFER_SIZE)
         npckt = NxtPacket(msg)
-        print("Received a {} msg with size = {}".format(npckt.header.type,
-                                                        str(len(msg))))
+        print("Received a {} msg with size = {}".format(
+                NxtType.to_string(npckt.header.type), str(len(msg))))
 
         if npckt.header.type == NxtType.FIN_TYPE:
             # ending routine
@@ -101,7 +101,7 @@ def receive_and_play(vid, sockt, server):
             fbDeadline += FEEDBACK_PERIOD
             # create message using the statistics
             msg = NxtPacket.construct_to_buffer(NxtType.FBCK_TYPE, 0, 
-                                                int2bin_b(lostMsgs))
+                                                int2bin_l(lostMsgs))
             # ENVIAR SEQ-NUM DO ULTIMO PACOTE RECEBIDO ???
             sockt.sendto(msg, server)
             # reset variables for next period
@@ -130,7 +130,7 @@ sockt.bind(client)
 sockt.settimeout(SOCKET_TIMEOUT)
 print("Timeout: " + str(sockt.gettimeout()))
 # sending hello message
-sockt.sendto(int2bin_b(cid), server)
+sockt.sendto(int2bin_l(cid), server)
 # trying to receive answer from server
 try:
     msg, addr = sockt.recvfrom(BUFFER_SIZE)
@@ -138,7 +138,7 @@ except socket.timeout:
     print("Client: server failed to respond.")
     exit(1)
     
-rport = bin2int_b(msg)
+rport = bin2int_l(msg)
 if rport < 0:
     print("Client: connection denied.")
     exit()
@@ -168,7 +168,7 @@ while True:
     elif cmd == "exit":
         print("Bye")
         # finishing routine
-        sockt.sendto(int2bin_b(NxtCode.EXIT_CODE), server)
+        sockt.sendto(int2bin_l(NxtCode.EXIT_CODE), server)
         break
     else:
         print("Unknown command. Try again.")
