@@ -17,12 +17,17 @@ def main():
 	qLen = len(data.channel[0].list[0].Q_line)
 	nElements = len(data.channel[0].list)
 	print('Size of Data: '+str((pLen+qLen+1)*data.totalSize()))
-	print('toFloatArray')
-	floatArray = data.toFloatArray()
-	print('Length of FloatArray: '+str(len(floatArray)))
-	data = st.Data([st.Channel([]),st.Channel([]),st.Channel([])],0)
+	
+	#floatArray = ds.floatArrayFromData(data)
+	ds.dump('testDelete',[[data]])
+	
+	#print('Length of FloatArray: '+str(len(floatArray)))
+	#data = st.Data([st.Channel([]),st.Channel([]),st.Channel([])],0)
+	
 	print('back from FloatArray')
-	data = ds.dataFromFloatArray(floatArray,pLen,qLen,nElements,3,0)
+	#data = ds.dataFromFloatArray(floatArray,pLen,qLen,nElements,3,0)
+	success,dataList = ds.load(ds.genFileName('testDelete',0))
+	data = dataList[0]
 	print('Size of Data: '+str((pLen+qLen+1)*data.totalSize()))
 	#only for tests:
 	#data.shuffleData()

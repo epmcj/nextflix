@@ -27,10 +27,6 @@ class ChannelElement:
 	#of this data element
 	def __getitem__(self, k):
 		return self.D_value
-	
-	#Methods for dumping into a file
-	def toFloatArray(self):
-		return self.P_column.tolist()+[self.D_value]+self.Q_line.tolist()
 
 ##################################################################################################
 #single channel inside a data object
@@ -129,14 +125,6 @@ class Channel:
 					S = S-weights.pop(i)
 					break
 		return Channel(subList)
-	
-	#Methods for dumping into a file
-	
-	def toFloatArray(self):
-		floatArray = []
-		for chn in self.list:
-			floatArray = floatArray + chn.toFloatArray()
-		return floatArray
 
 ##################################################################################################
 #slice of a frame (may be the entire frame)
@@ -222,7 +210,8 @@ class Data:
 						msg.insertData(red)
 					
 					#list of messages for this category
-					msgs.append(msg)
+					if not msg.isEmpty():
+						msgs.append(msg)
 					
 					first = first + int(math.floor((1-msg_redundancies[cat])*msg_sizes[cat]))
 					
@@ -269,10 +258,3 @@ class Data:
 					np.array(n_msgs,dtype=float).T)))\
 			*np.array(msg_sizes_base,dtype=float))
 		return np.array(msg_sizes,dtype=int)
-	
-	def toFloatArray(self):
-		floatArray = []
-		for chn in self.channel:
-			floatArray = floatArray + chn.toFloatArray()
-		return floatArray
-

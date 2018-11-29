@@ -9,15 +9,23 @@ import videoBuff as vb
 
 import cv2
 
-inputFile = '../assets/sample2.mp4'
-saveFile = '../assets/sample2.p'
-frameRate = 30.0
+videoFile = '../assets/sample2.mp4'
 
-success,Cats = ds.load(saveFile)
+frameRate = 30
 
-if not success:
-	Cats = pp.preProcess(inputFile,5,[16,8,4,2,1],[0,0,0,0,0],[1,2,4,8,16],2,1)
-	#ds.dump(saveFile,Cats)
+Cats=[]
+Success = False
+for catIndex in range(5):
+	filename = ds.genFileName(videoFile,catIndex)
+	print('Loading '+filename)
+	success, cat = ds.load(filename)
+	Cats.append(cat)
+	Success = Success or success 
+
+if not Success:
+	Cats = pp.preProcess(videoFile,5,[5,4,3,2,1],[0,0,0,0,0],[1,2,3,4,5],2,1)
+	print('Saving data...')
+	ds.dump(videoFile,Cats)
 
 buff = vb.Buff(10000)
 
@@ -50,7 +58,7 @@ while True:
 	
 	frameList.append(image)
 #------------------------------------------------------------------------------------
-start = time.time()
+
 #while True:
 while frameList:
 	'''
@@ -76,6 +84,5 @@ while frameList:
 		#if the user pressed a key, quit
 		buff.quit = True
 		break
-end = time.time()
-print(end-start)
+
 cv2.destroyWindow("Nextflix")
