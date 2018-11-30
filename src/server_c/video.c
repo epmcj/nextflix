@@ -9,6 +9,7 @@
  * 
  **/
 #define NUM_CAT 2
+#define DATA_SIZE 10
 
 
 /**
@@ -41,18 +42,7 @@ int get_video_metadata(FILE* fp, video_metadata_t* vmd) {
  */
 int load_segment(FILE* fp, segment_t* buffer) {
     int i, j;
-    channel_t def_c;
-
-    def_c.r_val =  3.0;
-    def_c.i_val = -3.0;
-    for (i = 0; i < MAX_HEIGHT; i++) {
-        def_c.r_vec_h[i] = (double) i;
-        def_c.i_vec_h[i] = (double) i;
-    }
-    for (i = 0; i < MAX_WIDTH; i++) {
-        def_c.r_vec_w[i] = (double) i;
-        def_c.i_vec_w[i] = (double) i;
-    }
+    float def_vec[] = {0.0, 0.1, 0.2, 0.4, 0.8, 0.16, 0.32, 0.64, 0.128, 0.256};
 
     if (fp == NULL) {
         printf("FINISHED.\n");
@@ -74,14 +64,17 @@ int load_segment(FILE* fp, segment_t* buffer) {
         printf("FAILED TO LOAD.\n");
         return 1;
     }
-    // msgs from C1  
+    // msgs from C1
     for (i = 0; i < buffer->cats[0].n_msgs; i++) {
-        buffer->cats[0].msgs[i].n_data = 2;
-        for (j = 0; j < buffer->cats[0].msgs[i].n_data; j++) {
-            buffer->cats[0].msgs[i].data[j].frame = i;
-            buffer->cats[0].msgs[i].data[j].c[0] = def_c;
-            buffer->cats[0].msgs[i].data[j].c[1] = def_c;
-            buffer->cats[0].msgs[i].data[j].c[2] = def_c;
+        buffer->cats[0].msgs[i].size = DATA_SIZE;
+        buffer->cats[0].msgs[i].data = (float *) malloc(DATA_SIZE * 
+                                                        sizeof(float));
+        if (buffer->cats[0].msgs[i].data == NULL) {
+            printf("FAILED TO CREATE DATA ARRAY\n");
+            return 1;
+        }
+        for (j = 0; j < buffer->cats[0].msgs[i].size; j++) {
+            buffer->cats[0].msgs[i].data[j] = def_vec[j];
         }
     }
 
@@ -95,15 +88,19 @@ int load_segment(FILE* fp, segment_t* buffer) {
         return 1;
     }
     // msgs from C2
-    for (i = 0; i < buffer->cats[1].n_msgs; i++) {
-        buffer->cats[1].msgs[i].n_data = 2;
-        for (j = 0; j < buffer->cats[1].msgs[i].n_data; j++) {
-            buffer->cats[1].msgs[i].data[j].frame = i;
-            buffer->cats[1].msgs[i].data[j].c[0] = def_c;
-            buffer->cats[1].msgs[i].data[j].c[1] = def_c;
-            buffer->cats[1].msgs[i].data[j].c[2] = def_c;
+    for (i = 0; i < buffer->cats[0].n_msgs; i++) {
+        buffer->cats[1].msgs[i].size = DATA_SIZE;
+        buffer->cats[1].msgs[i].data = (float *) malloc(DATA_SIZE * 
+                                                        sizeof(float));
+        if (buffer->cats[1].msgs[i].data == NULL) {
+            printf("FAILED TO CREATE DATA ARRAY\n");
+            return 1;
         }
-    } 
+        for (j = 0; j < buffer->cats[1].msgs[i].size; j++) {
+            buffer->cats[1].msgs[i].data[j] = def_vec[j];
+        }
+    }
+    
 
     return 0;
 }

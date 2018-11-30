@@ -2,6 +2,7 @@ import sys
 import time
 import socket
 import random
+import struct
 from src.client_py.nxt    import *
 from src.client_py.common import *
 from src.client_py.olist  import OrderedList
@@ -10,6 +11,7 @@ BUFFER_SIZE     = 8192
 SOCKET_TIMEOUT  = 2.0 # in seconds
 FEEDBACK_PERIOD = 5.0 # in seconds
 NEXT_TIMEOUT    = 1.0 # in seconds 
+FLOAT_SIZE      = 4
 
 # receives video list from server
 def get_video_list(sockt, server):
@@ -65,6 +67,9 @@ def receive_and_play(vid, sockt, server):
 
         if npckt.header.type == NxtType.DATA_TYPE:
             print("Client: received a msg ({})".format(npckt.header.seq_num))
+            fmt = "<{0:d}f".format(int(npckt.psize/FLOAT_SIZE))
+            data = struct.unpack_from(fmt, npckt.payload)
+            print(data)
 
         if npckt.header.seq_num < nextSeqNum:
             # received a duplicate

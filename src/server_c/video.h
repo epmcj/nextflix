@@ -3,10 +3,11 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 
-#define MAX_DATA  10
-#define MAX_HEIGHT 5
-#define MAX_WIDTH  5
+// #define MAX_DATA  10
+// #define MAX_HEIGHT 5
+// #define MAX_WIDTH  5
 
 typedef struct {
     int   n_msgs;
@@ -20,23 +21,23 @@ typedef struct {
     cat_metadata_t* cat;
 } video_metadata_t;
 
-typedef struct {
-    double               r_val;
-    double               i_val;
-    double r_vec_h[MAX_HEIGHT];
-    double i_vec_h[MAX_HEIGHT];
-    double  r_vec_w[MAX_WIDTH];
-    double  i_vec_w[MAX_WIDTH];
-} channel_t;
+// typedef struct {
+//     float               r_val;
+//     float               i_val;
+//     float r_vec_h[MAX_HEIGHT];
+//     float i_vec_h[MAX_HEIGHT];
+//     float  r_vec_w[MAX_WIDTH];
+//     float  i_vec_w[MAX_WIDTH];
+// } channel_t;
+
+// typedef struct {
+//     channel_t c[3];
+//     int      frame;
+// } data_t;
 
 typedef struct {
-    channel_t c[3];
-    int      frame;
-} data_t;
-
-typedef struct {
-    data_t data[MAX_DATA];
-    int            n_data;
+    uint32_t size;
+    float   *data;
 } message_t;
 
 typedef struct {

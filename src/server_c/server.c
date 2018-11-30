@@ -471,7 +471,7 @@ int send_video(cinfo_t* client, int videoID) {
             #endif
         }
 count++;
-if (count == 100) {
+if (count == 1) {
 fp = NULL; // TODO: REMOVER TEMPORARIO !!!!!!!!!!!!
 }
     }
@@ -569,7 +569,8 @@ int send_video_msg(cinfo_t* c, message_t* msg, flow_t* info, char* buffer) {
     hdr.type    = DATA_TYPE;
     hdr.seq_num = info->seq_num++;
 
-    msize = create_msg(&hdr, (void *)msg, sizeof(message_t), buffer);
+    msize = create_msg(&hdr, (void *) msg->data, (sizeof(float) * msg->size), 
+                       buffer);
     if (sendto(c->data_sockt, buffer, msize, 0, 
         (struct sockaddr *) &c->caddr, sizeof(c->caddr)) < 0) {
         #if DEBUG_MODE

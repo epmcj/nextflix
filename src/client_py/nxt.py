@@ -35,21 +35,15 @@ class NxtHeader:
         buffer += int2bin_l(self.seq_num)  
         return buffer   
 
-class NxtPayload:
-    # MSG
-    # DATA
-    # CHANNEL
-    def __init__(self, payload):
-        return
 
 class NxtPacket:
     def __init__(self, msg):
         mtype   = msg[:4]
-        seqNum  = bin2int_l(msg[4:9])
-        payload = msg[9:]
+        seqNum  = bin2int_l(msg[4:8])
+        payload = msg[8:]
         self.header  = NxtHeader(mtype, seqNum)
         self.payload = payload
-        # self.payload = NxtPayload(payload)
+        self.psize   = len(msg) - 8 # msg size - header size
 
     @classmethod
     def construct_to_buffer(self, mtype, seqNum, payload):
