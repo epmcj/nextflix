@@ -18,9 +18,10 @@ Success = False
 for catIndex in range(5):
 	filename = ds.genFileName(videoFile,catIndex)
 	print('Loading '+filename)
-	success, cat = ds.load(filename)
-	Cats.append(cat)
-	Success = Success or success 
+	meta, cat = ds.load(filename)
+	if len(cat)>0:
+		Cats.append(cat)
+		Success = True
 
 if not Success:
 	Cats = pp.preProcess(videoFile,5,[5,4,3,2,1],[0,0,0,0,0],[1,2,3,4,5],2,1)
@@ -80,9 +81,12 @@ while frameList:
 	'''
 	cv2.imshow("Nextflix", frameList.pop(0))
 	#wait until the next frame
+	cv2.waitKey(0)
+	'''
 	if cv2.waitKey(int(1000/frameRate)) != -1:
 		#if the user pressed a key, quit
 		buff.quit = True
 		break
+	'''
 
 cv2.destroyWindow("Nextflix")

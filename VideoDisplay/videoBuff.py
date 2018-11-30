@@ -66,7 +66,6 @@ class Buff:
 	def write(self,data):
 		#if the buffer has space
 		if not self.isFull():
-			
 			#if the frame still matter
 			if data.frame>=self.firstFrame:
 				lastFrame = self.firstFrame+len(self.dataList)-1
@@ -74,13 +73,13 @@ class Buff:
 				#if there is not an initialized structure for this frame
 				if data.frame>lastFrame:
 					#creates the structures for each frame
-					#(data.frame+1 because of python)
-					for frameNum in range(lastFrame+1,data.frame+1):
+					for frameNum in range(lastFrame+1,data.frame):
 						self.dataList.append(st.Data([\
 							st.Channel([]),st.Channel([]),st.Channel([])],frameNum))
-				
-				#insert the data in the right place
-				self.dataList[data.frame-self.firstFrame].insertData(data)
+					self.dataList.append(data)
+				else:
+					#insert the data in the right place
+					self.dataList[data.frame-self.firstFrame].insertData(data)
 	
 	def isFull(self):
 		return (len(self.dataList)==self.maxSize)

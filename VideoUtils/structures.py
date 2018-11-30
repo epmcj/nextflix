@@ -2,6 +2,19 @@ import math
 import random
 import bisect
 import numpy as np
+##################################################################################################
+class Metadata:
+	def __init__(self,height,width,nChannels,frameNums,nElements):
+		#frame dimensions
+		self.height = height
+		self.width = width
+		
+		self.nChannels = nChannels
+		
+		#vectors that relates the number of the frame and the number of channelElements o
+		#i-th data object
+		self.frameNums = frameNums
+		self.nElements = nElements
 
 ##################################################################################################
 #single element of a single channel inside a data object

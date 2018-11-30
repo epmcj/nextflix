@@ -2,7 +2,7 @@ import os.path
 import structures as st
 import numpy as np
 
-#from array import array
+import itertools
 import csv
 
 def genFileName(fileName_base,catIndex):
@@ -31,66 +31,105 @@ def dump(fileName_base,cats):
 		
 		output_file.close()
 
-#load a single category from a file
-def load(filename):
+#load the header
+def loadHeader(filename):
 	#check if file exists
 	if not os.path.isfile(filename):
-		return False,None
+		return False,None,None,None,None,None
 	
-	#load the whole file
-	floatArray = loadArray(filename)
+	input_file = open(filename, 'r')
 	
 	#get header
-	pLen = int(floatArray[0])
-	qLen = int(floatArray[1])
-	nChannels = int(floatArray[2])
-	nDataObj = int(floatArray[3])
+	pLen = int(float(input_file.next()))
+	qLen = int(float(input_file.next()))
+	nChannels = int(float(input_file.next()))
+	nDataObj = int(float(input_file.next()))
 	
-	#data for this category
-	dataList = []
+	#framenums of each data object
+	frameNums = []
+	#nElements of each data object
+	nElements = []
 	
-	#first position for the rest of the header
-	inicioH = 4
-	
-	#first position with real image data
-	inicio = 4+2*nDataObj
 	for i in range(nDataObj):
 		#get new specific metadata
-		frameNum = int(floatArray[inicioH])
-		nElements = int(floatArray[inicioH+1])
-		inicioH = inicioH+1
-		
-		#get real image data and compose the object
-		dataList.append(dataFromFloatArray(\
-			floatArray[inicio:inicio+(pLen+qLen+1)*nElements*nChannels],\
-			pLen,qLen,nElements,nChannels,frameNum))
-		inicio = inicio + (pLen+qLen+1)*nElements*nChannels
+		frameNums.append(int(float(input_file.next())))
+		nElements.append(int(float(input_file.next())))
 	
-	return True,dataList
+	return True,st.Metadata(pLen,qLen,nChannels,frameNums,nElements)
+
+#O PROBLEMA PARECE ESTAR AQUI!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#load a single category from a file. Expects the metadata, the next index and the number of data
+#objects to be loaded. Returns a list of each list of floats
+def loadSegmentAsFloats(filename,meta,nextIndex,numObjects):
+	#check if file exists
+	if not os.path.isfile(filename):
+		return []
+	
+	#load the whole file
+	input_file = open(filename, 'r')
+	
+	#last object index that can be loaded
+	lastIndex = min(nextIndex+numObjects,len(meta.frameNums))
+	
+	#first float value to read (it will be assigned to firstValue in the first iteration)
+	lastValue = 4+2*len(meta.frameNums)+(meta.height+meta.width+1)\
+		*sum(meta.nElements[:nextIndex])*meta.nChannels
+	
+	#data as lists of floats
+	floatArrays = []
+	
+	for obj in range(nextIndex,lastIndex):
+		#the current first is the last of previous iteration, since it still is not loaded
+		firstValue = lastValue
+		#the size of this object
+		objSize = (meta.height+meta.width+1)*meta.nElements[obj]*meta.nChannels
+		#calculating the first value of the next iteration
+		lastValue = firstValue+objSize
+		floatArray = []
+		for row in itertools.islice(input_file, firstValue, lastValue):
+			floatArray.append(float(row))
+		floatArrays.append(floatArray)
+	
+	return floatArrays
+
+#load the entire file into a metadata object and a data list
+def load(filename):
+	success, meta = loadHeader(filename)
+	if not success:
+		return meta,[]
+	#number of data elements in the file
+	num = len(meta.nElements)
+	dataList = []
+	first = 0
+	while first<num:
+		#load next 100 elements
+		fArrayList = loadSegmentAsFloats(filename,meta,first,100)
+		#transform each one into a data object
+		for i in range(len(fArrayList)):
+			print(len(fArrayList[i]))
+			if len(fArrayList[i])>0:
+				data = dataFromFloatArray(fArrayList[i],meta,first+i)
+				dataList.append(data)
+		first = first+100
+	return meta, dataList
 
 #write a float array (list) in the disk
 def dumpArray(output_file, floatArray):
-	#float_array = array('f', floatArray)
-	#float_array.tofile(output_file)
-	
 	writer = csv.writer(output_file,delimiter='\n')
 	writer.writerow(floatArray)
 
-#load a float array from the disk
-def loadArray(filename):
-	input_file = open(filename, 'r')
-	#float_array = array('f')
-	#float_array.fromstring(input_file.read())
-	float_array = []
-	for y in input_file.read().split('\n'):
-		if y.isdigit():
-			float_array.append(float(y))
-	return float_array
-
-#pLen = length of each P column
-#qLen = length of each Q line
-#nElements = number of ChannelElements of each channel
-def dataFromFloatArray(floatArray,pLen,qLen,nElements,nChannels,frameNum):
+def dataFromFloatArray(floatArray,meta,objIndex):
+	#(metadata)
+	pLen = meta.height
+	qLen = meta.width
+	nElements = meta.nElements[objIndex]
+	nChannels = meta.nChannels
+	frameNum = meta.frameNums[objIndex]
+	
+	#empty list, empty object
+	if not floatArray:
+		return st.Data([],frameNum)
+	
 	first = 0
 	#total length of a channelElement
 	tLen = pLen+qLen+1
