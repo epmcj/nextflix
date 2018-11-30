@@ -13,6 +13,9 @@ class OrderedList:
         else:
             self.list.insert(i, value)
 
+    def is_empty(self):
+        return (len(self.list) == 0)
+
     def remove_min(self):
         if len(self.list) == 0:
             return None

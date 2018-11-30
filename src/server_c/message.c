@@ -14,16 +14,6 @@ mheader_t* read_header(char* msg) {
 
 int create_msg(mheader_t* header, void* payload, size_t psize, char* buffer) {
     write_header(header, buffer);
-    printf("msg header was copied (%ld).\n", sizeof(mheader_t));
     memcpy(buffer + sizeof(mheader_t), payload, psize);
-    printf("msg payload was copied (%ld).\n", psize);
-    if ((sizeof(mheader_t) + psize) < 10) {
-        printf("msg = ");
-        int i;
-        for (i = 0; i < (sizeof(mheader_t) + psize); i++) {
-            printf("\\x%x", buffer[i] & 0xFF);
-        }
-        printf("\n");
-    }
     return sizeof(mheader_t) + psize;
 }

@@ -378,6 +378,7 @@ int send_video(cinfo_t* client, int videoID) {
     printf("Streaming will start now.\n");
     
     // sending loop
+    int count = 0; // TODO: REMOVER
     while (load_segment(fp, &segment) != 1) {
         printf("New segment loaded (with %d categories).\n", segment.n_cat); // TODO: REMOVER
         // time table round initialization
@@ -412,7 +413,6 @@ int send_video(cinfo_t* client, int videoID) {
                         hpsentMsgs += 1;
                     }
                     nextMsg[i]++;
-                    printf("updating.\n"); // TODO: REMOVER
                     if (nextMsg[i] < segment.cats[i].n_msgs) {
                         ttable[i].rt = ttable[i].dl + 1;
                         ttable[i].dl = ttable[i].dl + ttable[i].inc;
@@ -420,7 +420,6 @@ int send_video(cinfo_t* client, int videoID) {
                         ttable[i].rt = segDeadline;
                         ttable[i].dl = segDeadline;
                     }
-                    printf("updated.\n"); // TODO: REMOVER
                     break;
                 }
             }
@@ -433,17 +432,18 @@ int send_video(cinfo_t* client, int videoID) {
         tsentMsgs += hpsentMsgs;
         missedDl  += (msgsPerHP - hpsentMsgs);
         // check if it is possible to reduce the hyperperiod
-        if (diffTime > (hperiod/HP_DECREASE)) {
-            hperiod -= (hperiod/HP_DECREASE);
+        if (diffTime > (hperiod*HP_DECREASE)) {
+            hperiod -= (hperiod*HP_DECREASE);
             #if DEBUG_MODE
-            printf("Server: reducing hyperperiod.\n");
+            printf("Server: reducing hyperperiod (%ld).\n", hperiod*HP_DECREASE);
             #endif
 
         } else if (hpsentMsgs < msgsPerHP) {
             // server was not able to sent all messages
-            hperiod += (hperiod/HP_INCREASE);
+            hperiod += (hperiod*HP_INCREASE);
             #if DEBUG_MODE
-            printf("Server: increasing hyperperiod.\n");
+            printf("Server: increasing hyperperiod (%ld).\n", 
+                   hperiod*HP_INCREASE);
             #endif
         }
 
@@ -470,8 +470,10 @@ int send_video(cinfo_t* client, int videoID) {
             printf("Server: client lost %d messages.\n", fb->lostMsgs);
             #endif
         }
-
+count++;
+if (count == 100) {
 fp = NULL; // TODO: REMOVER TEMPORARIO !!!!!!!!!!!!
+}
     }
 
     #if DEBUG_MODE

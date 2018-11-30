@@ -32,7 +32,8 @@ class NxtHeader:
 
     def to_buffer(self):
         buffer  = self.type
-        buffer += int2bin_l(self.seq_num)     
+        buffer += int2bin_l(self.seq_num)  
+        return buffer   
 
 class NxtPayload:
     # MSG
@@ -54,6 +55,7 @@ class NxtPacket:
     def construct_to_buffer(self, mtype, seqNum, payload):
         buffer  = NxtHeader(mtype, seqNum).to_buffer()
         buffer += payload
+        return buffer
 
     def to_buffer(self):
         buffer  = self.header.to_buffer()

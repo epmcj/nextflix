@@ -9,7 +9,7 @@ from src.client_py.olist  import OrderedList
 BUFFER_SIZE     = 8192
 SOCKET_TIMEOUT  = 2.0 # in seconds
 FEEDBACK_PERIOD = 5.0 # in seconds
-NEXT_TIMEOUT    = 0.5 # in seconds 
+NEXT_TIMEOUT    = 1.0 # in seconds 
 
 # receives video list from server
 def get_video_list(sockt, server):
@@ -84,8 +84,8 @@ def receive_and_play(vid, sockt, server):
 
         # msg was lost
         if time.time() > nextDeadline:
-            lostMsgs     += 1
-            while True:
+            lostMsgs += 1
+            while True and not waitingList.is_empty():
                 nextSeqNum += 1
                 if nextSeqNum < waitingList.get_min():
                     break
