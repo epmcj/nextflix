@@ -2,7 +2,8 @@ import os.path
 import structures as st
 import numpy as np
 
-from array import array
+#from array import array
+import csv
 
 def genFileName(fileName_base,catIndex):
 	return fileName_base+'_'+str(catIndex)+'.nextflix'
@@ -14,7 +15,7 @@ def dump(fileName_base,cats):
 	pLen, qLen = cats[0][0].channel[0].dim()
 	for cat in range(len(cats)):
 		filename = genFileName(fileName_base,cat)
-		output_file = open(filename, 'wb')
+		output_file = open(filename, 'a')
 		print('Saving cat '+str(cat)+' into '+filename)
 		
 		#the header follows the structure
@@ -69,14 +70,21 @@ def load(filename):
 
 #write a float array (list) in the disk
 def dumpArray(output_file, floatArray):
-	float_array = array('d', floatArray)
-	float_array.tofile(output_file)
+	#float_array = array('f', floatArray)
+	#float_array.tofile(output_file)
+	
+	writer = csv.writer(output_file,delimiter='\n')
+	writer.writerow(floatArray)
 
 #load a float array from the disk
 def loadArray(filename):
-	input_file = open(filename, 'rb')
-	float_array = array('d')
-	float_array.fromstring(input_file.read())
+	input_file = open(filename, 'r')
+	#float_array = array('f')
+	#float_array.fromstring(input_file.read())
+	float_array = []
+	for y in input_file.read().split('\n'):
+		if y.isdigit():
+			float_array.append(float(y))
 	return float_array
 
 #pLen = length of each P column
