@@ -81,12 +81,10 @@ while frameList:
 	'''
 	cv2.imshow("Nextflix", frameList.pop(0))
 	#wait until the next frame
-	cv2.waitKey(0)
-	'''
+	
 	if cv2.waitKey(int(1000/frameRate)) != -1:
 		#if the user pressed a key, quit
 		buff.quit = True
 		break
-	'''
 
 cv2.destroyWindow("Nextflix")

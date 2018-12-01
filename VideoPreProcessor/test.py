@@ -9,8 +9,8 @@ import codec as cod
 import dataSet as ds
 
 def main():
-	image = cv2.imread("../assets/amsterdam.jpg")
-	#image = cv2.imread("../assets/tiny.png")
+	#image = cv2.imread("../assets/amsterdam.jpg")
+	image = cv2.imread("../assets/tiny.png")
 	
 	data = cod.decomposeFrame(image,0)
 	pLen = len(data.channel[0].list[0].P_column)
@@ -18,17 +18,14 @@ def main():
 	nElements = len(data.channel[0].list)
 	print('Size of Data: '+str((pLen+qLen+1)*data.totalSize()))
 	
-	#floatArray = ds.floatArrayFromData(data)
 	ds.dump('testDelete',[[data]])
 	
-	#print('Length of FloatArray: '+str(len(floatArray)))
-	#data = st.Data([st.Channel([]),st.Channel([]),st.Channel([])],0)
-	
 	print('back from FloatArray')
-	#data = ds.dataFromFloatArray(floatArray,pLen,qLen,nElements,3,0)
-	success,dataList = ds.load(ds.genFileName('testDelete',0))
+	
+	meta,dataList = ds.load(ds.genFileName('testDelete',0))
 	data = dataList[0]
 	print('Size of Data: '+str((pLen+qLen+1)*data.totalSize()))
+	
 	#only for tests:
 	#data.shuffleData()
 	#data.loseData(100)

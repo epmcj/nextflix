@@ -57,7 +57,6 @@ def loadHeader(filename):
 	
 	return True,st.Metadata(pLen,qLen,nChannels,frameNums,nElements)
 
-#O PROBLEMA PARECE ESTAR AQUI!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 #load a single category from a file. Expects the metadata, the next index and the number of data
 #objects to be loaded. Returns a list of each list of floats
 def loadSegmentAsFloats(filename,meta,nextIndex,numObjects):
@@ -71,23 +70,33 @@ def loadSegmentAsFloats(filename,meta,nextIndex,numObjects):
 	#last object index that can be loaded
 	lastIndex = min(nextIndex+numObjects,len(meta.frameNums))
 	
-	#first float value to read (it will be assigned to firstValue in the first iteration)
-	lastValue = 4+2*len(meta.frameNums)+(meta.height+meta.width+1)\
-		*sum(meta.nElements[:nextIndex])*meta.nChannels
+	#nothing to load
+	if lastIndex<= nextIndex:
+		return []
 	
 	#data as lists of floats
 	floatArrays = []
 	
-	for obj in range(nextIndex,lastIndex):
-		#the current first is the last of previous iteration, since it still is not loaded
-		firstValue = lastValue
+	#process the first object
+	firstValue = 4+2*len(meta.nElements)+sum(meta.nElements[:nextIndex])*meta.nChannels\
+		*(meta.width+meta.height+1)
+	objSize = (meta.height+meta.width+1)*meta.nElements[nextIndex]*meta.nChannels	
+	floatArray = []
+	for row in itertools.islice(input_file, firstValue, firstValue+objSize):
+		floatArray.append(float(row))
+	
+	floatArrays.append(floatArray)
+	
+	#process the rest of the objects
+	for obj in range(nextIndex+1,lastIndex):
 		#the size of this object
 		objSize = (meta.height+meta.width+1)*meta.nElements[obj]*meta.nChannels
-		#calculating the first value of the next iteration
-		lastValue = firstValue+objSize
+		
 		floatArray = []
-		for row in itertools.islice(input_file, firstValue, lastValue):
+		#islice considers the next value of the file as index 0
+		for row in itertools.islice(input_file, 0, objSize):
 			floatArray.append(float(row))
+		
 		floatArrays.append(floatArray)
 	
 	return floatArrays
@@ -101,12 +110,12 @@ def load(filename):
 	num = len(meta.nElements)
 	dataList = []
 	first = 0
-	while first<num:
+	while first<=num:
 		#load next 100 elements
 		fArrayList = loadSegmentAsFloats(filename,meta,first,100)
 		#transform each one into a data object
 		for i in range(len(fArrayList)):
-			print(len(fArrayList[i]))
+			
 			if len(fArrayList[i])>0:
 				data = dataFromFloatArray(fArrayList[i],meta,first+i)
 				dataList.append(data)
