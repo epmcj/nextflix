@@ -1,82 +1,59 @@
-import cv2
-import numpy as np
-import thread
+#import cv2
+#import thread
+
 import videoBuff as vb
+import videoClient as vc
+import sys
+sys.path.insert(0,'../VideoPreProcessor')
+import preProcess as pp
 
-#producer
-def getFrames(vidcap,buff):
-	while True:
-		
-		#if the other thread wants to quit
-		if buff.getCode()==-1:
-			break
-		
-		#only in order to not break buffer's limit
-		if not buff.isFull():
-			#read the next frame
-			success,frame = vidcap.read()
-			
-			#if there is a new frame
-			if success:
-				#insert it in the buffer
-				buff.write(frame)
-			else:
-				#wait the buffer to be consumed and quit
-				buff.finished = True
-				break
-
-#consumer
-def showFrames(height,width,buff,frameRate):
-	
-	while True:
-		
-		#wait for a new frame of for transmission end
-		while True:
-			cod = buff.getCode()
-			if cod != 1:
-				#there is a frame to show or the transmission finished
-				break
-		
-		if cod==-1:
-			#the transmission is finished
-			break
-		
-		#get next frame
-		cod,image = buff.read()
-		#display the frame
-		cv2.imshow("Nextflix", image)
-		
-		#wait until the next frame
-		if cv2.waitKey(int(1000/frameRate)) != -1:
-			#if the user pressed a key, quit
-			buff.quit = True
-			break
+sys.path.insert(0,'../VideoUtils')
+import dataSet as ds
 
 def main():
 	
-	#open the video
-	vidcap = cv2.VideoCapture('../assets/sample.mp4')
+	videoFile = '../assets/sample2.mp4'
+
+	frameRate = 30
+	#the gap of frames that will be waited each time the video stops.
+	#increase this value for the video to be more fluid
+	framesBeforeStart = 30
+	#The maximum number of objects that can wait for new data
+	#increase this value if you want a better quality 
+	receiveWindow = 30
 	
-	#get some parameters
-	height = int(vidcap.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT))
-	width = int(vidcap.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH))
-	frameRate = vidcap.get(cv2.cv.CV_CAP_PROP_FPS)
+	#reading the pre-processed data
+	Cats=[]
+	Success = False
+	for catIndex in range(5):
+		filename = ds.genFileName(videoFile,catIndex)
+		print('Loading '+filename)
+		meta, cat = ds.load(filename)
+		if len(cat)>0:
+			Cats.append(cat)
+			Success = True
 	
-	#create the buffer
+	#if id does not exists, create it
+	if not Success:
+		Cats = pp.preProcess(videoFile,5,[5,4,3,2,1],[0,0,0,0,0],[1,2,3,4,5],2,1)
+		print('Saving data...')
+		ds.dump(videoFile,Cats)
+	
+	#the video buffer
 	buff = vb.Buff(10000)
 	
-	cv2.namedWindow("Nextflix")	
+	#the messages arrive
+	for cat in Cats:
+		for msg in cat:
+			buff.write(msg)
 	
-	try:
-	   thread.start_new_thread(getFrames, (vidcap,buff))
-	   thread.start_new_thread(showFrames, (height,width,buff,frameRate))
-	except:
-	   print "Error: unable to start threads"
+	buff.finished = True
 	
-	while buff.getCode()!=-1:
+	vc.startDisplayMechanism(framesBeforeStart,receiveWindow,buff,frameRate)
+	
+	while buff.getCode_displayer()!=-1:
 		pass
 	
-	cv2.destroyWindow("Nextflix")
-	vidcap.release()	
+	print('Exiting application')	
 
 main()

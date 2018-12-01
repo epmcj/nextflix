@@ -8,6 +8,7 @@ class Buff:
 	finished = False
 	quit = False
 	dataList = []
+	frameList = []
 	maxSize = 0
 	firstFrame = 0
 	
@@ -24,9 +25,24 @@ class Buff:
 		#creates the structure for frame 0 data
 		self.dataList.append(st.Data([st.Channel([]),st.Channel([]),st.Channel([])],0))
 	
+	#wait until nFrames be ready to display
+	def waitReadyFrames(self, nFrames):
+		while len(self.frameList)<nFrames or self.quit:
+			pass
+	
+	#generates the next frame
 	def read(self):
-		code = self.getCode()
+		code = self.getCode_displayer()
 		if code==0:
+			#get the lower-frameNum data
+			return self.frameList.pop(0)
+		else:
+			return None
+	
+	#for the frame composer
+	def composeNextFrame(self):
+		code = self.getCode_composer()
+		if code==0 or code==2:
 			#get the lower-frameNum data
 			data = self.dataList.pop(0)
 			#move the pointer for the next frame
@@ -39,21 +55,18 @@ class Buff:
 			#recomposes the frame based on the received data
 			success, frame = cod.composeFrame(data)
 			
-			if not success:
-				return -1, None
-			else:
-				return 0, frame
-		else:
-			return code,Node
+			if success:
+				self.frameList.append(frame)
 	
-	def getCode(self):
+	#codes of interest for the frame displayer
+	def getCode_displayer(self):
 		if self.quit:
 			#the user wants to quit
 			return -1
 		else:
-			if self.dataList[0].isEmpty():
+			if not self.frameList:
 				#there aren't any more frame to show
-				if self.finished:
+				if self.finished and self.dataList[0].isEmpty():
 					#the video is finished
 					return -1
 				else:
@@ -62,6 +75,27 @@ class Buff:
 			else:
 				#there are ready frames
 				return 0
+	
+	#codes of interest for the frame composer
+	def getCode_composer(self):
+		if self.quit:
+			#the user wants to quit
+			return -1
+		else:
+			if self.dataList[0].isEmpty():
+				#there aren't any more frame to compose
+				if self.finished:
+					#the video is finished
+					return -1
+				else:
+					#some frames are expected to arrive
+					return 1
+			else:
+				#there are ready frames
+				if self.finished:
+					return 2
+				else:
+					return 0
 	
 	def write(self,data):
 		#if the buffer has space
@@ -83,4 +117,7 @@ class Buff:
 	
 	def isFull(self):
 		return (len(self.dataList)==self.maxSize)
+	
+	def isEmpty_d(self):
+		return self.dataList[0].isEmpty()
 
