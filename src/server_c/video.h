@@ -82,9 +82,19 @@ void destroy_message_set(msg_set_t* cat);
 int get_file_metadata(FILE* fp, metadata_t* meta);
 
 /**
+ * Initializes the variable that will carry the state for
+ * the next function
+ */
+
+void initialize_ctrl_index(int *ctrlIndex, metadata_t meta);
+
+/**
  * Loads the next video segment into the buffer.
  * Returns 1 in case of error and 0 otherwise.
+ * Obtain meta using get_file_metadata, ctrlIndex using 
+ * initialize_ctrl_index and initialize next with 0
  */
-int load_msg_set(FILE* fp, msg_set_t* buffer);
+int load_msg_set(FILE* fp, msg_set_t* buffer, metadata_t meta,
+	int* ctrlIndex, int* next);
 
 #endif

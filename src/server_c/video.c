@@ -14,8 +14,8 @@ metadata_t* create_metadata(int maxNMsgs, int numFrames){
     meta->nObjects = 0;
     meta->nChannels = 0;
     
-    meta->nElements = (int*) malloc(maxNMsgs * sizeof(int));
-    meta->frameNums = (int*) malloc(maxNMsgs * sizeof(int));
+    meta->nElements = (int*) malloc(numFrames * maxNMsgs * sizeof(int));
+    meta->frameNums = (int*) malloc(numFrames * maxNMsgs * sizeof(int));
     return meta;
 }
 
@@ -104,11 +104,28 @@ int get_file_metadata(FILE* fp, metadata_t* meta) {
     return 0;
 }
 
+void initialize_ctrl_index(int *ctrlIndex, metadata_t meta){
+	*ctrlIndex = 4+2*meta.nObjects;
+}
+
 /**
  * Loads the next sequence of data objects into the buffer.
  * Returns 1 in case of error and 0 otherwise.
  */
-int load_msg_set(FILE* fp, msg_set_t* buffer) {
-    
+int load_msg_set(FILE* fp, msg_set_t* buffer, metadata_t meta,
+	int* ctrlIndex, int* next) {
+	
+	int i;
+	
+	if (*next >= meta.nObjects) {
+		//nothing to read
+		return 1;
+	}
+	
+	buffer->n_msgs = 0;
+	
+    fseek(fp, *ctrlIndex, SEEK_SET);
+	
+	
     return 0;
 }
