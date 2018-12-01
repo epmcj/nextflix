@@ -1,106 +1,114 @@
-/**
- * ONLY FOR TESTS !!! 
- **/
 #include "video.h"
 
-/** VIDEO IS COMPOSED BY 2 CATEGORIES:
- *  C1 = {2 msgs of size 2}
- *  C2 = {3 msgs of size 1}
- * 
- **/
-#define NUM_CAT 2
-#define DATA_SIZE 10
+/**
+ * Creates a metadata_t struct with all scalar fields equal to zero
+ * maxNMsgs is the number of messages of the category (per frame)
+ * numFrames is the total number of frames of the video
+ */
+metadata_t* create_metadata(int maxNMsgs, int numFrames){
+
+	metadata_t* meta = (metadata_t*) malloc(sizeof(metadata_t));
+	
+	meta->frame_height = 0;
+    meta->frame_width = 0;
+    meta->nObjects = 0;
+    meta->nChannels = 0;
+    
+    meta->nElements = (int*) malloc(maxNMsgs * sizeof(int));
+    meta->frameNums = (int*) malloc(maxNMsgs * sizeof(int));
+    return meta;
+}
+
+void destroy_metadata(metadata_t* meta) {
+
+	free(meta->nElements);
+	free(meta->frameNums);
+	free(meta);
+}
+
+/**
+ * Creates a superscaled set of messages
+ */
+msg_set_t* create_message_set(metadata_t meta) {
+	
+	int i;
+	
+	msg_set_t* cat = (msg_set_t*) malloc(sizeof(msg_set_t));
+	
+	cat->n_msgs = 0;
+	cat->msgs = (message_t*) malloc(MAX_MSG_SET*sizeof(message_t));
+	
+	int maxMsgSize = meta.nChannels
+		*(meta.frame_height+meta.frame_width+1)
+		*((meta.frame_height<meta.frame_width)?meta.frame_height:meta.frame_width);
+	
+	for (i=0; i < MAX_MSG_SET; i++) {
+		cat->msgs[i].size = 0;
+		cat->msgs[i].data = (float*) calloc(maxMsgSize, sizeof(float));
+	}
+}
+
+void destroy_message_set(msg_set_t* cat){
+
+	int i;
+	for (i=0; i < MAX_MSG_SET; i++) {
+		free(cat->msgs[i].data);
+	}
+	free(cat->msgs);
+	free(cat);
+}
+
 
 
 /**
- * Reads and stores the video metadata in the file fp.
+ * Reads metadata from file fp.
  * Returns 1 in case of error and 0 otherwise.
  */
-int get_video_metadata(FILE* fp, video_metadata_t* vmd) {
-
-    vmd->frame_height = 860;
-    vmd->frame_width  = 940;
-
-    vmd->n_cat = NUM_CAT;
-    vmd->cat = (cat_metadata_t *) malloc(NUM_CAT * sizeof(cat_metadata_t));
-    if (vmd->cat == NULL) {
-        printf("FAILED TO GET MEATADATA.\n");
+int get_file_metadata(FILE* fp, metadata_t* meta) {
+	
+	int i;
+	float x;
+	
+    if (fp == NULL) {
+        printf("Invalid file pointer.\n");
         return 1;
     }
-
-    vmd->cat[0].n_msgs   = 2;
-    vmd->cat[0].msg_size = 2;
-    vmd->cat[1].n_msgs   = 3;
-    vmd->cat[1].msg_size = 1;
-
+	
+	//make sure that the file pointer is at the beginning
+	rewind(fp);
+	
+	//Read sequencially the header
+	fscanf(fp,"%f\n", &x);
+	meta->frame_height = (int) x;
+	
+	fscanf(fp,"%f\n", &x);
+	meta->frame_width = (int) x;
+	
+	fscanf(fp,"%f\n", &x);
+	meta->nChannels = (int) x;
+	
+	fscanf(fp,"%f\n", &x);
+	meta->nObjects = (int) x;
+	
+	//read the attributes of each specific data object
+	for(i=0; i < meta->nObjects; i++){
+	
+		fscanf(fp,"%f\n", &x);
+		meta->frameNums[i] = (int) x;
+		//printf("%f\n",x);
+		
+		fscanf(fp,"%f\n", &x);
+		meta->nElements[i] = (int) x;
+	}
+	
     return 0;
 }
 
 /**
- * Loads the next video segment into the buffer.
+ * Loads the next sequence of data objects into the buffer.
  * Returns 1 in case of error and 0 otherwise.
  */
-int load_segment(FILE* fp, segment_t* buffer) {
-    int i, j;
-    float def_vec[] = {0.0, 0.1, 0.2, 0.4, 0.8, 0.16, 0.32, 0.64, 0.128, 0.256};
-
-    if (fp == NULL) {
-        printf("FINISHED.\n");
-        return 1;
-    }
-
-    buffer->n_cat = NUM_CAT;
-    buffer->cats  = (category_t *) malloc(buffer->n_cat * sizeof(category_t));
-    if (buffer->cats == NULL) {
-        printf("FAILED TO LOAD.\n");
-        return 1;
-    }
-
-    buffer->cats[0].msg_size = 2;
-    buffer->cats[0].n_msgs   = 2;
-    buffer->cats[0].msgs = (message_t *) malloc(buffer->cats[0].n_msgs * 
-                                                sizeof(message_t));
-    if (buffer->cats[0].msgs == NULL) {
-        printf("FAILED TO LOAD.\n");
-        return 1;
-    }
-    // msgs from C1
-    for (i = 0; i < buffer->cats[0].n_msgs; i++) {
-        buffer->cats[0].msgs[i].size = DATA_SIZE;
-        buffer->cats[0].msgs[i].data = (float *) malloc(DATA_SIZE * 
-                                                        sizeof(float));
-        if (buffer->cats[0].msgs[i].data == NULL) {
-            printf("FAILED TO CREATE DATA ARRAY\n");
-            return 1;
-        }
-        for (j = 0; j < buffer->cats[0].msgs[i].size; j++) {
-            buffer->cats[0].msgs[i].data[j] = def_vec[j];
-        }
-    }
-
-
-    buffer->cats[1].msg_size = 1;
-    buffer->cats[1].n_msgs   = 3;
-    buffer->cats[1].msgs = (message_t *) malloc(buffer->cats[1].n_msgs * 
-                                                sizeof(message_t));
-    if (buffer->cats[1].msgs == NULL) {
-        printf("FAILED TO LOAD.\n");
-        return 1;
-    }
-    // msgs from C2
-    for (i = 0; i < buffer->cats[0].n_msgs; i++) {
-        buffer->cats[1].msgs[i].size = DATA_SIZE;
-        buffer->cats[1].msgs[i].data = (float *) malloc(DATA_SIZE * 
-                                                        sizeof(float));
-        if (buffer->cats[1].msgs[i].data == NULL) {
-            printf("FAILED TO CREATE DATA ARRAY\n");
-            return 1;
-        }
-        for (j = 0; j < buffer->cats[1].msgs[i].size; j++) {
-            buffer->cats[1].msgs[i].data[j] = def_vec[j];
-        }
-    }
+int load_msg_set(FILE* fp, msg_set_t* buffer) {
     
-
     return 0;
 }
