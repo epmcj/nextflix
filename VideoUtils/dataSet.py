@@ -35,7 +35,7 @@ def dump(fileName_base,cats):
 def loadHeader(filename):
 	#check if file exists
 	if not os.path.isfile(filename):
-		return False,None,None,None,None,None
+		return False, None
 	
 	input_file = open(filename, 'r')
 	
