@@ -40,10 +40,10 @@ def loadHeader(filename):
 	input_file = open(filename, 'r')
 	
 	#get header
-	pLen = int(float(input_file.next()))
-	qLen = int(float(input_file.next()))
-	nChannels = int(float(input_file.next()))
-	nDataObj = int(float(input_file.next()))
+	pLen = int(float(next(input_file)))
+	qLen = int(float(next(input_file)))
+	nChannels = int(float(next(input_file)))
+	nDataObj = int(float(next(input_file)))
 	
 	#framenums of each data object
 	frameNums = []
@@ -52,8 +52,8 @@ def loadHeader(filename):
 	
 	for i in range(nDataObj):
 		#get new specific metadata
-		frameNums.append(int(float(input_file.next())))
-		nElements.append(int(float(input_file.next())))
+		frameNums.append(int(float(next(input_file))))
+		nElements.append(int(float(next(input_file))))
 	
 	return True,st.Metadata(pLen,qLen,nChannels,frameNums,nElements)
 
@@ -103,9 +103,18 @@ def loadSegmentAsFloats(filename,meta,nextIndex,numObjects):
 
 #load the entire file into a metadata object and a data list
 def load(filename):
+	print('Loading '+filename)
+	
 	success, meta = loadHeader(filename)
 	if not success:
 		return meta,[]
+	
+	print('frame height: ' + str(meta.height))
+	print('frame width: ' + str(meta.width))
+	print('number of channels: ' + str(meta.nChannels))
+	print('Number of objects '+str(len(meta.frameNums)))
+	print('Number of frames '+str(meta.frameNums[-1]+1))
+	
 	#number of data elements in the file
 	num = len(meta.nElements)
 	dataList = []
@@ -137,7 +146,10 @@ def dataFromFloatArray(floatArray,meta,objIndex):
 	
 	#empty list, empty object
 	if not floatArray:
-		return st.Data([],frameNum)
+		ChannelList = []
+		for i in range(nChannels):
+			ChannelList.append(st.Channel([]))
+		return st.Data(ChannelList,frameNum)
 	
 	first = 0
 	#total length of a channelElement

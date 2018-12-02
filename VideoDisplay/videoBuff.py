@@ -12,7 +12,7 @@ class Buff:
 	maxSize = 0
 	firstFrame = 0
 	
-	def __init__(self,maxSize):
+	def __init__(self,maxSize,nChannels):
 		if maxSize==0:
 			print('Please make sure that maxSize is greater than 0')
 			exit(0)
@@ -21,9 +21,14 @@ class Buff:
 			print('This is a singleton class')
 			exit(0)
 		
+		self.nChannels = nChannels
+		
 		self.maxSize = maxSize
 		#creates the structure for frame 0 data
-		self.dataList.append(st.Data([st.Channel([]),st.Channel([]),st.Channel([])],0))
+		ChannelList = []
+		for i in range(self.nChannels):
+			ChannelList.append(st.Channel([]))
+		self.dataList.append(st.Data(ChannelList,0))
 	
 	#wait until nFrames be ready to display
 	def waitReadyFrames(self, nFrames):
@@ -49,8 +54,10 @@ class Buff:
 			self.firstFrame = self.firstFrame+1
 			#be sure that the list will never be empty
 			if not self.dataList:
-				self.dataList.append(st.Data([\
-					st.Channel([]),st.Channel([]),st.Channel([])],self.firstFrame))
+				ChannelList = []
+				for i in range(self.maxSize):
+					ChannelList.append(st.Channel([]))
+				self.dataList.append(st.Data(ChannelList,self.firstFrame))
 			
 			#recomposes the frame based on the received data
 			success, frame = cod.composeFrame(data)
@@ -108,8 +115,10 @@ class Buff:
 				if data.frame>lastFrame:
 					#creates the structures for each frame
 					for frameNum in range(lastFrame+1,data.frame):
-						self.dataList.append(st.Data([\
-							st.Channel([]),st.Channel([]),st.Channel([])],frameNum))
+						ChannelList = []
+						for i in range(self.maxSize):
+							ChannelList.append(st.Channel([]))
+						self.dataList.append(st.Data(ChannelList,frameNum))
 					self.dataList.append(data)
 				else:
 					#insert the data in the right place

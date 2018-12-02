@@ -12,8 +12,9 @@ import dataSet as ds
 
 def main():
 	
-	videoFile = '../assets/sample2.mp4'
-
+	videoFile = '../assets/chaplinCut.mp4'
+	grayScale = True
+	
 	frameRate = 30
 	#the gap of frames that will be waited each time the video stops.
 	#increase this value for the video to be more fluid
@@ -25,9 +26,8 @@ def main():
 	#reading the pre-processed data
 	Cats=[]
 	Success = False
-	for catIndex in range(5):
+	for catIndex in range(2):
 		filename = ds.genFileName(videoFile,catIndex)
-		print('Loading '+filename)
 		meta, cat = ds.load(filename)
 		if len(cat)>0:
 			Cats.append(cat)
@@ -35,13 +35,20 @@ def main():
 	
 	#if id does not exists, create it
 	if not Success:
-		Cats = pp.preProcess(videoFile,5,[600,480,360,240,120],[0,0,0,0,0],[1,1.2,1.4,1.6,1.8],2,1)
+		nCats = 2
+		msgRedundancies = [0,0]
+		exp = 2
+		fixed = 1
+		msgPeriods = [180,90]
+		msgSize = [1,2]
+		Cats = pp.preProcess(videoFile,nCats,msgPeriods,msgRedundancies,msgSize,exp,fixed,grayScale)
+		#Cats = pp.preProcess(videoFile,2,[600,480,360,240,120],[0,0,0,0,0],[1,1.2,1.4,1.6,1.8],2,1,grayScale)
 		# Cats = pp.preProcess(videoFile,5,[5,4,3,2,1],[0,0,0,0,0],[1,2,3,4,5],2,1)
 		print('Saving data...')
 		ds.dump(videoFile,Cats)
 	
 	#the video buffer
-	buff = vb.Buff(10000)
+	buff = vb.Buff(10000, meta.nChannels)
 	
 	#the messages arrive
 	for cat in Cats:

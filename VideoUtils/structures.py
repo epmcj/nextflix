@@ -143,8 +143,10 @@ class Channel:
 #slice of a frame (may be the entire frame)
 class Data:
 	def __init__(self, channels, frameNum):
-		if((len(channels[0])!=len(channels[1])) or (len(channels[0])!=len(channels[2]))):
-			print('Inconsistant data')
+		for i in range(1,len(channels)):
+			if(len(channels[i])!=len(channels[i-1])):
+				print('Inconsistant data')
+				exit()
 		self.channel = channels
 		self.frame = frameNum
 	
@@ -159,7 +161,7 @@ class Data:
 	def totalSize(self):
 		s = 0
 		for channel in self.channel:
-			s = s + len(self.channel[0])
+			s = s + len(channel)
 		return s
 		
 	#only for test purposes. n is the number of elements to maintain

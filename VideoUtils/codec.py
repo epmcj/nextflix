@@ -4,8 +4,11 @@ import structures as st
 #return a data object containing an entire frame
 def decomposeFrame(frame,frameNum):
 	channelList = []
-	for i in range(frame.shape[2]):
-		channelList.append(decomposeMatrix(frame[:,:,i]))
+	if len(frame.shape)==3:
+		for i in range(frame.shape[2]):
+			channelList.append(decomposeMatrix(frame[:,:,i]))
+	else:
+		channelList.append(decomposeMatrix(frame))
 	return(st.Data(channelList, frameNum))
 
 #apply svd decomposition to a single channel of an image.

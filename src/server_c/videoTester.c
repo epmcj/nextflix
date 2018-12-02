@@ -11,7 +11,7 @@ int main(){
 	int next = 0;//next object to be loaded
 	int maxNumMsgs = 50;//amount of messages to be loaded at once
 	
-	FILE* fp = fopen("../../assets/sample2.mp4_0.nextflix","r");
+	FILE* fp = fopen("../../assets/chaplinCut.mp4_0.nextflix","r");
 	
 	metadata_t* meta = create_metadata(0, maxNMsgs, numFrames);
 	
