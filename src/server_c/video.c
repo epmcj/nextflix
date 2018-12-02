@@ -29,23 +29,29 @@ void destroy_metadata(metadata_t* meta) {
 /**
  * Creates a superscaled set of messages
  */
-msg_set_t* create_message_set(metadata_t meta) {
+msg_set_t* create_message_set(metadata_t* meta) {
 	
-	int i;
+	int i, maxNElements = 0;
 	
 	msg_set_t* cat = (msg_set_t*) malloc(sizeof(msg_set_t));
 	
 	cat->n_msgs = 0;
 	cat->msgs = (message_t*) malloc(MAX_MSG_SET*sizeof(message_t));
 	
-	int maxMsgSize = meta.nChannels
-		*(meta.frame_height+meta.frame_width+1)
-		*((meta.frame_height<meta.frame_width)?meta.frame_height:meta.frame_width);
+	for (i = 0; i < meta->nObjects; i++)
+		if(maxNElements < meta->nElements[i])
+			maxNElements = meta->nElements[i];
+	
+	int maxMsgSize = meta->nChannels
+		*(meta->frame_height+meta->frame_width+1)
+		*(maxNElements);
 	
 	for (i=0; i < MAX_MSG_SET; i++) {
 		cat->msgs[i].size = 0;
 		cat->msgs[i].data = (float*) calloc(maxMsgSize, sizeof(float));
 	}
+	
+	return cat;
 }
 
 void destroy_message_set(msg_set_t* cat){
@@ -57,8 +63,6 @@ void destroy_message_set(msg_set_t* cat){
 	free(cat->msgs);
 	free(cat);
 }
-
-
 
 /**
  * Reads metadata from file fp.
@@ -104,48 +108,37 @@ int get_file_metadata(FILE* fp, metadata_t* meta) {
     return 0;
 }
 
-void initialize_ctrl_index(int *ctrlIndex, metadata_t* meta){
-	*ctrlIndex = (long int) 4+2*meta->nObjects;
-}
-
 /**
  * Loads the next sequence of data objects into the buffer.
  * Returns 1 in case of error and 0 otherwise.
  */
-int load_msg_set(FILE* fp, msg_set_t* buffer, metadata_t* meta,
-	long int* ctrlIndex, int* next) {//MUDAR ctrlIndex P LONG INT NO .H
+int load_msg_set(FILE* fp, msg_set_t* buffer, metadata_t* meta, int next) {
 	
-	int i, j, final;
+	int i, j, final, objSize;
 	float x;
 	
-	if (*next >= meta->nObjects) {
+	if (next >= meta->nObjects) {
 		//nothing to read
-		return 1;
+		return next;
 	}
 	
 	//set starts empty
 	buffer->n_msgs = 0;
 	
-	//place the pointer
-    fseek(fp, *ctrlIndex, SEEK_SET);
+	final = next + MAX_MSG_SET;
 	
-	final = *next + MAX_MSG_SET;
-	
-	while ((*next < meta->nObjects) && (*next < final)){
+	while ((next < meta->nObjects) && (next < final)){
 		//size of this single object in floats
-		objSize = meta->nElements[*next]*meta->nChannels
+		objSize = meta->nElements[next]*meta->nChannels
 			*(meta->frame_height + meta->frame_width + 1);
 		//read the next [objSize] floats and place them
 		for (j = 0; j < objSize; j++){
 			fscanf(fp,"%f\n", buffer->msgs[buffer->n_msgs].data + j);
 		}
 		//updating pointers..
-		*next++;
+		next++;
 		buffer->n_msgs++;
 	}
 	
-	//keep the index control for the next call
-	*ctrlIndex = ftell(fp);
-	
-    return 0;
+    return next;
 }

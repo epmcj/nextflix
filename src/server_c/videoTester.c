@@ -5,11 +5,10 @@
 // ./a.out
 
 int main(){
-	int i;
+	int i, old;
 	int maxNMsgs = 5;//number of messages per frame for cat1
 	int numFrames = 65;//for the chosed video
 	int next = 0;//next object to be loaded
-	long int ctrlIndex;//internal control for the loader
 	
 	FILE* fp = fopen("../../assets/sample2.mp4_0.nextflix","r");
 	
@@ -27,17 +26,23 @@ int main(){
 		printf("\n");
 	}
 	
-	initialize_ctrl_index(&ctrlIndex, meta);
+	msg_set_t* buffer = create_message_set(meta);
 	
-	//read the rest of the file (using the same buffer structure
+	//read the rest of the file (using the same buffer structure)
+	old = 0;
 	while (1){
-		if(load_msg_set(fp, buffer, meta, &ctrlIndex, &next)){
+		//load the next MAX_MSG_SET messages
+		next = load_msg_set(fp, buffer, meta, next);
+		if(next==old){
+			//if the index did not increase, end
 			break;
 		}else{
-			
+			printf("Loaded %d messages\n", buffer->n_msgs);
+			old = next;
 		}
 	}
 	destroy_metadata(meta);
+	destroy_message_set(buffer);
 	
 	fclose(fp);
 	
