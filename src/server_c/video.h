@@ -83,6 +83,6 @@ void initialize_ctrl_index(int *ctrlIndex, metadata_t meta);
  * initialize_ctrl_index and initialize next with 0
  */
 int load_msg_set(FILE* fp, msg_set_t* buffer, metadata_t meta,
-	int* ctrlIndex, int* next);
+	long int* ctrlIndex, int* next);
 
 #endif
