@@ -1,5 +1,5 @@
 import cv2
-import thread
+import _thread
 
 import videoBuff as vb
 
@@ -15,7 +15,7 @@ def startDisplayMechanism(framesBeforeStart,receiveWindow,buff,frameRate):
 	   thread.start_new_thread(frameComposer, (framesBeforeStart,receiveWindow,buff))
 	   thread.start_new_thread(frameDisplayer, (framesBeforeStart,buff,frameRate))
 	except:
-	   print "Error: unable to start threads"
+	   print("Error: unable to start threads")
 
 #producer
 def frameComposer(framesBeforeStart,receiveWindow,buff):

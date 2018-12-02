@@ -404,7 +404,6 @@ int send_video(cinfo_t* client, int videoID) {
     }
 
     // getting and sending video metadata
-printf("loading metadata\n");
     if (create_and_load_metadata(fps, vinfo, ncats, msgsCat, nframes) == 1) {
         #if DEBUG_MODE
         printf("Server: failed to create and load metadata.\n");
@@ -412,7 +411,6 @@ printf("loading metadata\n");
         return 1;
     }
 
-printf("loaded metadata\n");
     for (i = 0; i < ncats; i++) {
         printf("%d: %dx%d - elm[0]=%d, fnum[0]=%d\n", vinfo[i]->cat_id, 
                                                     vinfo[i]->frame_height, 
@@ -425,10 +423,24 @@ printf("loaded metadata\n");
         send_metadata_msg(client, vinfo[i], msgsCat[i] * nframes, buffer);
     }
     
-    printf("Streaming will start now.\n");
+    // filing segment info
+    printf("Filing segment\n");
+    segment.n_cat  = ncats;
+    segment.segNum = 0;
+    segment.sets   = (msg_set_t**) malloc(ncats * sizeof(msg_set_t*));
+    if (segment.sets == NULL) {
+        #if DEBUG_MODE
+        printf("Server: no memory for segment sets.\n");
+        #endif
+        return 1;
+    }
+    for (i = 0; i < ncats; i++) {
+        segment.sets[i] = create_message_set(vinfo[i], msgsCat[i]);
+    }
+    printf("done\n");
     // sending loop
-    int count = 0; // TODO: REMOVER
-    while (load_next_segment(fps, vinfo, &segment) != 1) {
+    printf("Streaming will start now.\n");
+    while (load_next_segment(fps, vinfo, msgsCat, &segment) != 1) {
         printf("New segment loaded (with %d categories).\n", segment.n_cat); // TODO: REMOVER
         // time table round initialization
         for (i = 0; i < ncats; i++) {
@@ -446,7 +458,7 @@ printf("loaded metadata\n");
                     printf("Server: missed a deadline.\n");
                     #endif
                     nextMsg[i]++;
-                    if (nextMsg[i] < segment.cats[i].n_msgs) {
+                    if (nextMsg[i] < segment.sets[i]->n_msgs) {
                         ttable[i].rt = ttable[i].dl + 1;
                         ttable[i].dl = ttable[i].dl + ttable[i].inc;
                     } else {
@@ -457,12 +469,14 @@ printf("loaded metadata\n");
 
                 } else if (currTime > ttable[i].rt) {
                     // can send this message
-                    msg = &segment.cats[i].msgs[nextMsg[i]];
+                    msg = &segment.sets[i]->msgs[nextMsg[i]];
+printf("Will send.\n");
                     if (send_video_msg(client, msg, &flowInfo, buffer) == 0) {
                         hpsentMsgs += 1;
+printf("msg sent.\n");
                     }
                     nextMsg[i]++;
-                    if (nextMsg[i] < segment.cats[i].n_msgs) {
+                    if (nextMsg[i] < segment.sets[i]->n_msgs) {
                         ttable[i].rt = ttable[i].dl + 1;
                         ttable[i].dl = ttable[i].dl + ttable[i].inc;
                     } else {
@@ -619,8 +633,22 @@ int send_video_msg(cinfo_t* c, message_t* msg, flow_t* info, char* buffer) {
     hdr.type    = DATA_TYPE;
     hdr.seq_num = info->seq_num++;
 
-    msize = create_msg(&hdr, (void *) msg->data, (sizeof(float) * msg->size), 
-                       buffer);
+    // msize = create_msg(&hdr, (void *) msg->data, (sizeof(float) * msg->size), 
+    //                    buffer);
+
+    msize = 0;
+    msize += write_header(&hdr, buffer);
+
+    // copying data
+    memcpy(buffer + msize, &msg->size, sizeof(uint32_t));
+    msize += sizeof(uint32_t);
+    memcpy(buffer + msize, &msg->categoryId, sizeof(uint32_t));
+    msize += sizeof(uint32_t);
+    memcpy(buffer + msize, &msg->index, sizeof(uint32_t));
+    msize += sizeof(uint32_t);
+    memcpy(buffer + msize, msg->data, msg->size*sizeof(float));
+    msize += msg->size*sizeof(float);
+
     if (sendto(c->data_sockt, buffer, msize, 0, 
         (struct sockaddr *) &c->caddr, sizeof(c->caddr)) < 0) {
         #if DEBUG_MODE
@@ -645,8 +673,7 @@ int send_metadata_msg(cinfo_t* c, metadata_t* catMetadata, int fieldSize,
     hdr.seq_num = 0;
 
     msize = 0;
-    write_header(&hdr, buffer);
-    msize += sizeof(mheader_t);
+    msize += write_header(&hdr, buffer);
 
     // copying metadata (too bad)
     memcpy(buffer + msize, &catMetadata->cat_id, sizeof(uint32_t));
@@ -663,7 +690,7 @@ int send_metadata_msg(cinfo_t* c, metadata_t* catMetadata, int fieldSize,
     msize += fieldSize*sizeof(uint32_t);
     memcpy(buffer + msize, catMetadata->frameNums, fieldSize*sizeof(uint32_t));
     msize += fieldSize*sizeof(uint32_t);   
-printf("fsize=%d\n", fieldSize);
+
     if (sendto(c->data_sockt, buffer, msize, 0, 
         (struct sockaddr *) &c->caddr, sizeof(c->caddr)) < 0) {
         #if DEBUG_MODE

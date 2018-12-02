@@ -3,10 +3,13 @@ import time
 import socket
 import random
 import struct
+import VideoDisplay.videoClient as vc
+import VideoDisplay.videoBuff   as vb
 from src.client_py.nxt     import *
 from src.client_py.common  import *
 from src.client_py.olist   import OrderedList
 from VideoUtils.structures import Metadata
+from VideoUtils.dataSet    import dataFromFloatArray
 
 BUFFER_SIZE     = 8192
 SOCKET_TIMEOUT  = 2.0 # in seconds
@@ -49,6 +52,14 @@ class Category:
         self.metadata = Metadata(self.frameHeight, self.frameWidth, 
                                  self.nChannels, self.frameNums, self.nElmts)
 
+def decode_data_payload(payload):
+    size  = bin2int_l(payload[0:4])
+    cat   = bin2int_l(payload[4:8])
+    index = bin2int_l(payload[8:12])
+    fmt = "<{0:d}f".format(int(size/FLOAT_SIZE))
+    data = struct.unpack_from(fmt, payload[12:])
+    return size, cat, index, data
+
 # receives video list from server
 def get_video_list(sockt, server):
     vlist = []
@@ -77,12 +88,18 @@ def receive_and_play(vid, sockt, server):
     waitingList  = OrderedList(unique=True)
     catInfo      = {}
     ncats        = 0
-    
+    frameRate = 30
+    #the gap of frames that will be waited each time the video stops.
+    #increase this value for the video to be more fluid
+    framesBeforeStart = 30
+    #The maximum number of objects that can wait for new data
+    #increase this value if you want a better quality 
+    receiveWindow = 30
+
+    buff = vb.Buff(10000)
+    vc.startDisplayMechanism(framesBeforeStart, receiveWindow, buff, frameRate)
+
     sockt.sendto(int2bin_l(NxtCode.PLAY_CODE) + int2bin_l(vid), server)
-    
-    # msg, addr  = sockt.recvfrom(BUFFER_SIZE)
-    # print("Received msg with size = " + str(len(msg)))
-    # npckt = NxtPacket(msg)
 
     nextDeadline = time.time() + NEXT_TIMEOUT
     
@@ -101,13 +118,13 @@ def receive_and_play(vid, sockt, server):
             # LOST OF MESSAGES ARE A PROBLEM HERE !!
             cat = Category(npckt.payload)
             catInfo[cat.id] = cat
-            print("id = {}".format(cat.id))
-            print("frameHeight = {}".format(cat.frameHeight))
-            print("frameWidth = {}".format(cat.frameWidth))
-            print("nChannels = {}".format(cat.nChannels))
-            print("nObjs = {}".format(cat.nObjs))
-            print("nElmts[0] = {}".format(cat.nElmts[0]))
-            print("frameNums[0] = {}".format(cat.frameNums[0]))
+            # print("id = {}".format(cat.id))
+            # print("frameHeight = {}".format(cat.frameHeight))
+            # print("frameWidth = {}".format(cat.frameWidth))
+            # print("nChannels = {}".format(cat.nChannels))
+            # print("nObjs = {}".format(cat.nObjs))
+            # print("nElmts[0] = {}".format(cat.nElmts[0]))
+            # print("frameNums[0] = {}".format(cat.frameNums[0]))
 
         elif npckt.header.type == NxtType.INIT_TYPE:
             nextSeqNum = npckt.header.seq_num
@@ -119,9 +136,10 @@ def receive_and_play(vid, sockt, server):
 
         elif npckt.header.type == NxtType.DATA_TYPE:
             print("Client: received a msg ({})".format(npckt.header.seq_num))
-            fmt = "<{0:d}f".format(int(npckt.psize/FLOAT_SIZE))
-            data = struct.unpack_from(fmt, npckt.payload)
-            print(data)
+            # decoding payload
+            _, cat, index, data = decode_data_payload
+            buff.write(dataFromFloatArray(data, catInfo[cat], index))
+            print("{}:{}".format((cat, index)))
 
             if npckt.header.seq_num < nextSeqNum:
                 # received a duplicate
@@ -163,6 +181,11 @@ def receive_and_play(vid, sockt, server):
             sockt.sendto(msg, server)
             # reset variables for next period
             lostMsgs = 0
+
+    # finishing
+    buff.finished = True
+    while buff.getCode_displayer()!=-1:
+        pass
 
 
 

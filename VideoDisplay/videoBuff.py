@@ -1,7 +1,6 @@
 import sys
-sys.path.insert(0,'../VideoUtils')
 
-import structures as st
+import VideoUtils.structures as st
 import codec as cod
 
 class Buff:

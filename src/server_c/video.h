@@ -14,7 +14,7 @@
 //    int msg_size;
 //} cat_metadata_t;
 
-#define NUM_CATS     5
+#define NUM_CATS     2
 #define NUM_FRAMES   65
 #define MSGS_PER_CAT {5,4,3,2,1}
 
@@ -33,9 +33,9 @@ typedef struct {
 
 typedef struct {
     uint32_t size;
+	uint32_t categoryId;//a pedido do Eduardo
+	uint32_t index;//index of this message inside the file
     float   *data;
-	int index;//index of this message inside the file
-	int categoryId;//a pedido do Eduardo
 } message_t;
 
 typedef struct {
@@ -46,9 +46,9 @@ typedef struct {
 }msg_set_t;
 
 typedef struct {
-   msg_set_t*  sets;
-   int        n_cat;
-   int       segNum;
+   msg_set_t**  sets;
+   int         n_cat;
+   int        segNum;
 } segment_t;
 
 
@@ -91,6 +91,7 @@ int create_and_load_metadata(FILE** files, metadata_t** vmdata, int ncat,
 /**
  * 
  **/
-int load_next_segment(FILE** files, metadata_t** vmdata, segment_t* seg);
+int load_next_segment(FILE** files, metadata_t** vmdata, int *msgsCat, 
+                      segment_t* seg);
 
 #endif

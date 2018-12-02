@@ -11,11 +11,11 @@
 #define DATA_TYPE 0x01
 #define FIN_TYPE  0x02
 #define FBCK_TYPE 0x04
-#define CTRL_TYPE 0x05
+#define CTRL_TYPE 0x08
 
 // Message header
 typedef struct {
-    unsigned char type;
+    uint32_t      type;
     uint32_t   seq_num;
 } mheader_t;
 

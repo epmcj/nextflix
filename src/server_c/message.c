@@ -5,7 +5,7 @@
  **/
 int write_header(mheader_t* header, char* buffer) {
     memcpy(buffer, header, sizeof(mheader_t));
-    return 0;
+    return sizeof(mheader_t);
 }
 
 mheader_t* read_header(char* msg) {

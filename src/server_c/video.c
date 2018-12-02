@@ -151,7 +151,7 @@ int load_msg_set(FILE* fp, msg_set_t* buffer, metadata_t* meta, int next,
 
 int create_and_load_metadata(FILE** files, metadata_t** vmdata, int ncat, 
 							 int *maxMsgsPerCat, int numFrames) {
-	/*int i;
+	int i;
 	FILE *fp;
 	char fname[512]; // magic number
 
@@ -161,19 +161,23 @@ int create_and_load_metadata(FILE** files, metadata_t** vmdata, int ncat,
 			return 1;
 		}
 	}
-*/
+
 	return 0;
 }
 
-int load_next_segment(FILE** files, metadata_t** vmdata, segment_t* seg) {
+int load_next_segment(FILE** fps, metadata_t** vmdata, int *msgsCat, 
+					  segment_t* seg) {
 	int i, next;
-/*
+
 	next = seg->segNum + 1;
 	for (i = 0; i < seg->n_cat; i++) {
-		if (load_msg_set(files[i], &seg->sets[i], vmdata[i], next) == next) {
+		if (load_msg_set(fps[i], seg->sets[i], vmdata[i], next, msgsCat[i], i) 
+			== next) {
+			printf("Failed to load msg set %d.\n", i);
 			return 1;
 		}
 	}
-*/
+	seg->segNum++;	
+
 	return 0;
 }
