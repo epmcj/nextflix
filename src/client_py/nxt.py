@@ -11,6 +11,7 @@ class NxtType:
     DATA_TYPE = b'\x01\x00\x00\x00'
     FIN_TYPE  = b'\x02\x00\x00\x00'
     FBCK_TYPE = b'\x04\x00\x00\x00'
+    CTRL_TYPE = b'\x05\x00\x00\x00'
 
     @classmethod
     def to_string(self, mtype):
@@ -22,6 +23,8 @@ class NxtType:
             return "FIN_TYPE"
         elif mtype == self.FBCK_TYPE:
             return "FBCK_TYPE"
+        elif mtype == self.CTRL_TYPE:
+            return "CTRL_TYPE"
         return "UNKN_TYPE"
 
 

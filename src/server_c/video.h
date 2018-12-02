@@ -17,15 +17,17 @@
 //get 100 msgs from disk each reading
 #define MAX_MSG_SET  100
 #define NUM_CATS     5
+#define NUM_FRAMES   65
 #define MSGS_PER_CAT {5,4,3,2,1}
 
 typedef struct {
-    int    frame_height;
-    int    frame_width;
-    int    nChannels;
-    int    nObjects;//number of data objects written in the file
-    int*   nElements;//number of elements of each data object in the file
-    int*   frameNums;//frame to which each data object belongs
+    uint32_t  cat_id; 
+    uint32_t  frame_height;
+    uint32_t  frame_width;
+    uint32_t  nChannels;
+    uint32_t  nObjects;//number of data objects written in the file
+    uint32_t* nElements;//number of elements of each data object in the file
+    uint32_t* frameNums;//frame to which each data object belongs
     //int           n_cat;
     //cat_metadata_t* cat;
 //} video_metadata_t;
@@ -46,6 +48,7 @@ typedef struct {
 typedef struct {
    msg_set_t*  sets;
    int        n_cat;
+   int       segNum;
 } segment_t;
 
 
@@ -54,7 +57,7 @@ typedef struct {
  * maxNMsgs is the number of messages of the category (per frame)
  * numFrames is the total number of frames of the video
  */
-metadata_t* create_metadata(int maxNMsgs, int numFrames);
+metadata_t* create_metadata(uint32_t id, int maxNMsgs, int numFrames);
 void destroy_metadata(metadata_t* meta);
 
 /**
@@ -77,5 +80,16 @@ int get_file_metadata(FILE* fp, metadata_t* meta);
  * next with 0
  */
 int load_msg_set(FILE* fp, msg_set_t* buffer, metadata_t* meta, int next);
+
+/**
+ * 
+ **/
+int create_and_load_metadata(FILE** files, metadata_t** vmdata, int ncat, 
+                             int *maxMsgsPerCat, int numFrames);
+
+/**
+ * 
+ **/
+int load_next_segment(FILE** files, metadata_t** vmdata, segment_t* seg);
 
 #endif

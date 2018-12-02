@@ -3,15 +3,51 @@ import time
 import socket
 import random
 import struct
-from src.client_py.nxt    import *
-from src.client_py.common import *
-from src.client_py.olist  import OrderedList
+from src.client_py.nxt     import *
+from src.client_py.common  import *
+from src.client_py.olist   import OrderedList
+from VideoUtils.structures import Metadata
 
 BUFFER_SIZE     = 8192
 SOCKET_TIMEOUT  = 2.0 # in seconds
 FEEDBACK_PERIOD = 5.0 # in seconds
 NEXT_TIMEOUT    = 1.0 # in seconds 
 FLOAT_SIZE      = 4
+
+class Category:
+    def __init__(self, id, frameHeight, frameWidth, nChannels, nObjs, nElmts, 
+                 frameNums):
+        self.id          = id         
+        self.frameHeight = frameHeight
+        self.frameWidth  = frameWidth
+        self.nChannels   = nChannels
+        self.nObjs       = nObjs
+        self.nElmts      = nElmts
+        self.frameNums   = frameNums
+        self.metadata    = Metadata(frameHeight, frameWidth, nChannels, 
+                                    frameNums, nElmts)
+    
+    def __init__(self, byteArray):
+        self.id          = bin2int_l(byteArray[0:4])         
+        self.frameHeight = bin2int_l(byteArray[4:8])
+        self.frameWidth  = bin2int_l(byteArray[8:12])
+        self.nChannels   = bin2int_l(byteArray[12:16])
+        self.nObjs       = bin2int_l(byteArray[16:20])
+        # the remaining of the array is composed by two arrays of same length
+        fieldSize = int((len(byteArray) - (5 * 4)) / 2)
+        print("fsize = {}".format(fieldSize/4))
+        b = 20
+        self.nElmts = []
+        for i in range(int(fieldSize/4)): # 4 bytes for each entry
+            bi = b + i * 4
+            self.nElmts.append(bin2int_l(byteArray[bi:bi+4])) 
+        b = b + fieldSize
+        self.frameNums = []
+        for i in range(int(fieldSize/4)): # 4 bytes for each entry
+            bi = b + i * 4
+            self.frameNums.append(bin2int_l(byteArray[bi:bi+4])) 
+        self.metadata = Metadata(self.frameHeight, self.frameWidth, 
+                                 self.nChannels, self.frameNums, self.nElmts)
 
 # receives video list from server
 def get_video_list(sockt, server):
@@ -39,6 +75,8 @@ def receive_and_play(vid, sockt, server):
     fbDeadline   = time.time() + FEEDBACK_PERIOD
     nextDeadline = 0
     waitingList  = OrderedList(unique=True)
+    catInfo      = {}
+    ncats        = 0
     
     sockt.sendto(int2bin_l(NxtCode.PLAY_CODE) + int2bin_l(vid), server)
     
@@ -59,33 +97,47 @@ def receive_and_play(vid, sockt, server):
             # ending routine
             break
         
-        if npckt.header.type == NxtType.INIT_TYPE:
+        elif npckt.header.type == NxtType.CTRL_TYPE:
+            # LOST OF MESSAGES ARE A PROBLEM HERE !!
+            cat = Category(npckt.payload)
+            catInfo[cat.id] = cat
+            print("id = {}".format(cat.id))
+            print("frameHeight = {}".format(cat.frameHeight))
+            print("frameWidth = {}".format(cat.frameWidth))
+            print("nChannels = {}".format(cat.nChannels))
+            print("nObjs = {}".format(cat.nObjs))
+            print("nElmts[0] = {}".format(cat.nElmts[0]))
+            print("frameNums[0] = {}".format(cat.frameNums[0]))
+
+        elif npckt.header.type == NxtType.INIT_TYPE:
             nextSeqNum = npckt.header.seq_num
-            print("First seqNum = " + str(npckt.header.seq_num))
+            ncats      = bin2int_l(npckt.payload)
+            print("First seqNum = {}".format(nextSeqNum), end=", ")
+            print("{} categories".format(ncats))
             # return msg to confirm it
             sockt.sendto(msg, server)
 
-        if npckt.header.type == NxtType.DATA_TYPE:
+        elif npckt.header.type == NxtType.DATA_TYPE:
             print("Client: received a msg ({})".format(npckt.header.seq_num))
             fmt = "<{0:d}f".format(int(npckt.psize/FLOAT_SIZE))
             data = struct.unpack_from(fmt, npckt.payload)
             print(data)
 
-        if npckt.header.seq_num < nextSeqNum:
-            # received a duplicate
-            print("Client: duplicated msg received (", end="")
-            print("expected = " + str(nextSeqNum))
-            print("got = " + str(npckt.header.seq_num) + ")")
+            if npckt.header.seq_num < nextSeqNum:
+                # received a duplicate
+                print("Client: duplicated msg received (", end="")
+                print("expected = " + str(nextSeqNum))
+                print("got = " + str(npckt.header.seq_num) + ")")
 
-        else:
-            if npckt.header.seq_num == nextSeqNum:
-                # received the next expected msg
-                nextSeqNum   += 1
-                nextDeadline += NEXT_TIMEOUT
+            else:
+                if npckt.header.seq_num == nextSeqNum:
+                    # received the next expected msg
+                    nextSeqNum   += 1
+                    nextDeadline += NEXT_TIMEOUT
 
-            elif npckt.header.seq_num > nextSeqNum:
-                # received a valid msg
-                waitingList.add(npckt.header.seq_num)
+                elif npckt.header.seq_num > nextSeqNum:
+                    # received a valid msg
+                    waitingList.add(npckt.header.seq_num)
 
         # msg was lost
         if time.time() > nextDeadline:

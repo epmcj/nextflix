@@ -5,14 +5,15 @@
  * maxNMsgs is the number of messages of the category (per frame)
  * numFrames is the total number of frames of the video
  */
-metadata_t* create_metadata(int maxNMsgs, int numFrames){
+metadata_t* create_metadata(uint32_t id, int maxNMsgs, int numFrames){
 
 	metadata_t* meta = (metadata_t*) malloc(sizeof(metadata_t));
 	
+	meta->cat_id       = id;
 	meta->frame_height = 0;
-    meta->frame_width = 0;
-    meta->nObjects = 0;
-    meta->nChannels = 0;
+    meta->frame_width  = 0;
+    meta->nChannels    = 0;
+    meta->nObjects 	   = 0;
     
     meta->nElements = (int*) malloc(numFrames * maxNMsgs * sizeof(int));
     meta->frameNums = (int*) malloc(numFrames * maxNMsgs * sizeof(int));
@@ -141,4 +142,34 @@ int load_msg_set(FILE* fp, msg_set_t* buffer, metadata_t* meta, int next) {
 	}
 	
     return next;
+}
+
+
+int create_and_load_metadata(FILE** files, metadata_t** vmdata, int ncat, 
+							 int *maxMsgsPerCat, int numFrames) {
+	int i;
+	FILE *fp;
+	char fname[512]; // magic number
+
+	for (i = 0; i < ncat; i++) {
+		vmdata[i] = create_metadata(i, maxMsgsPerCat[i], numFrames);
+		if (get_file_metadata(files[i], vmdata[i]) == 1) {
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+int load_next_segment(FILE** files, metadata_t** vmdata, segment_t* seg) {
+	int i, next;
+
+	next = seg->segNum + 1;
+	for (i = 0; i < seg->n_cat; i++) {
+		if (load_msg_set(files[i], &seg->sets[i], vmdata[i], next) == next) {
+			return 1;
+		}
+	}
+
+	return 0;
 }

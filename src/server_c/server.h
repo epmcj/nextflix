@@ -96,4 +96,10 @@ int send_video_list(cinfo_t* client);
  **/
 int send_video_msg(cinfo_t* client, message_t* msg, flow_t* info, char* buffer);
 
+/**
+ * 
+ **/
+int send_metadata_msg(cinfo_t* client, metadata_t* catMetadata, int fieldSize,
+                      char* buffer);
+
 #endif
