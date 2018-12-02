@@ -235,8 +235,10 @@ void* handle_feedback(void* parameters) {
 int send_video(cinfo_t* client, int videoID) {
     char buffer[SEND_BUFFER_LEN];
     int i, addrLen, rcvd, msize, *nextMsg;
+    int msg_cat[] = MSGS_PER_CAT;
     uint32_t seqNum;
-    video_metadata_t vinfo;
+    // video_metadata_t vinfo;
+    metadata_t vinfo;
     segment_t segment;
     message_t *msg;
     mheader_t phdr, *rhdr;
@@ -279,10 +281,10 @@ int send_video(cinfo_t* client, int videoID) {
 
     get_video_metadata(fp, &vinfo);
     #if DEBUG_MODE
-    printf("video has %d categories with ", vinfo.n_cat);
+    printf("video has %d categories with ", NUM_CATS);
     msgsPerHP = 0;
-    for (i = 0; i < vinfo.n_cat; i++) {
-        msgsPerHP += vinfo.cat[i].n_msgs;
+    for (i = 0; i < NUM_CATS; i++) {
+        msgsPerHP += msg_cat[i];
         // printf("%d ", vinfo.cat[i].n_msgs);
     }
     printf("messages each.\n");
@@ -299,7 +301,7 @@ int send_video(cinfo_t* client, int videoID) {
         return 1;
     }
 
-    nextMsg = (int *) malloc(vinfo.n_cat * sizeof(int));
+    nextMsg = (int *) malloc(NUM_CATS * sizeof(int));
     if (nextMsg == NULL) {
         #if DEBUG_MODE
         printf("Server: no memory.\n");
@@ -308,7 +310,7 @@ int send_video(cinfo_t* client, int videoID) {
     }
 
     // creating time table (columns: [Release Time, Deadline, Increment])
-    ttable = (ttable_entry_t*) malloc(vinfo.n_cat * sizeof(ttable_entry_t));
+    ttable = (ttable_entry_t*) malloc(NUM_CATS * sizeof(ttable_entry_t));
     if (ttable == NULL) {
         #if DEBUG_MODE
         printf("Server: no memory for the time table.\n");
@@ -321,8 +323,8 @@ int send_video(cinfo_t* client, int videoID) {
     #endif
 
     // filling the increments (they are fixed for a video)
-    for (i = 0; i < vinfo.n_cat; i++) {
-        ttable[i].inc = (hperiod * CLOCKS_PER_SEC) / vinfo.cat[i].n_msgs;
+    for (i = 0; i < NUM_CATS; i++) {
+        ttable[i].inc = (hperiod * CLOCKS_PER_SEC) / msg_cat[i];
     }
 
     #if DEBUG_MODE
@@ -382,7 +384,7 @@ int send_video(cinfo_t* client, int videoID) {
     while (load_segment(fp, &segment) != 1) {
         printf("New segment loaded (with %d categories).\n", segment.n_cat); // TODO: REMOVER
         // time table round initialization
-        for (i = 0; i < vinfo.n_cat; i++) {
+        for (i = 0; i < NUM_CATS; i++) {
             nextMsg[i]   = 0;
             ttable[i].rt = clock();
             ttable[i].dl = ttable[i].rt + ttable[i].inc;
@@ -390,7 +392,7 @@ int send_video(cinfo_t* client, int videoID) {
 
         segDeadline = clock() + (hperiod * CLOCKS_PER_SEC);
         while((currTime = clock()) < segDeadline) {
-            for (i = 0; i < vinfo.n_cat; i++) {
+            for (i = 0; i < NUM_CATS; i++) {
                 if (currTime > ttable[i].dl) {
                     // missed the deadline
                     #if DEBUG_MODE

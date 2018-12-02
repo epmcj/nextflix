@@ -15,7 +15,9 @@
 //} cat_metadata_t;
 
 //get 100 msgs from disk each reading
-#define MAX_MSG_SET 100
+#define MAX_MSG_SET  100
+#define NUM_CATS     5
+#define MSGS_PER_CAT {5,4,3,2,1}
 
 typedef struct {
     int    frame_height;
@@ -29,20 +31,6 @@ typedef struct {
 //} video_metadata_t;
 } metadata_t;
 
-// typedef struct {
-//     float               r_val;
-//     float               i_val;
-//     float r_vec_h[MAX_HEIGHT];
-//     float i_vec_h[MAX_HEIGHT];
-//     float  r_vec_w[MAX_WIDTH];
-//     float  i_vec_w[MAX_WIDTH];
-// } channel_t;
-
-// typedef struct {
-//     channel_t c[3];
-//     int      frame;
-// } data_t;
-
 typedef struct {
     uint32_t size;
     float   *data;
@@ -55,10 +43,10 @@ typedef struct {
 //} category_t;
 }msg_set_t;
 
-//typedef struct {
-//    category_t* cats;
-//    int        n_cat;
-//} segment_t;
+typedef struct {
+   msg_set_t*  sets;
+   int        n_cat;
+} segment_t;
 
 
 /**
