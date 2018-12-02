@@ -9,10 +9,11 @@ int main(){
 	int maxNMsgs = 5;//number of messages per frame for cat1
 	int numFrames = 65;//for the chosed video
 	int next = 0;//next object to be loaded
+	int maxNumMsgs = 50;//amount of messages to be loaded at once
 	
 	FILE* fp = fopen("../../assets/sample2.mp4_0.nextflix","r");
 	
-	metadata_t* meta = create_metadata(maxNMsgs, numFrames);
+	metadata_t* meta = create_metadata(0, maxNMsgs, numFrames);
 	
 	get_file_metadata(fp, meta);
 	printf("Height: %d\n", meta->frame_height);
@@ -26,23 +27,28 @@ int main(){
 		printf("\n");
 	}
 	
-	msg_set_t* buffer = create_message_set(meta);
+	msg_set_t* buffer = create_message_set(meta, maxNumMsgs);
 	
 	//read the rest of the file (using the same buffer structure)
 	old = 0;
 	while (1){
-		//load the next MAX_MSG_SET messages
-		next = load_msg_set(fp, buffer, meta, next);
+		//load the next maxNumMsgs messages. maxNumMsgs is the upper limit
+		//only for this buffer instancy.
+		next = load_msg_set(fp, buffer, meta, next, maxNumMsgs, 0);
 		if(next==old){
 			//if the index did not increase, end
 			break;
 		}else{
 			printf("Loaded %d messages\n", buffer->n_msgs);
+			for (i=0; i < buffer->n_msgs; i++){
+				printf("Msg id %d com %d floats\n", buffer->msgs[i].index,
+					buffer->msgs[i].size);
+			}
 			old = next;
 		}
 	}
 	destroy_metadata(meta);
-	destroy_message_set(buffer);
+	destroy_message_set(buffer, maxNumMsgs);
 	
 	fclose(fp);
 	

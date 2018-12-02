@@ -30,14 +30,14 @@ void destroy_metadata(metadata_t* meta) {
 /**
  * Creates a superscaled set of messages
  */
-msg_set_t* create_message_set(metadata_t* meta) {
+msg_set_t* create_message_set(metadata_t* meta, int maxNumMsg) {
 	
 	int i, maxNElements = 0;
 	
 	msg_set_t* cat = (msg_set_t*) malloc(sizeof(msg_set_t));
 	
 	cat->n_msgs = 0;
-	cat->msgs = (message_t*) malloc(MAX_MSG_SET*sizeof(message_t));
+	cat->msgs = (message_t*) malloc(maxNumMsg*sizeof(message_t));
 	
 	for (i = 0; i < meta->nObjects; i++)
 		if(maxNElements < meta->nElements[i])
@@ -47,7 +47,7 @@ msg_set_t* create_message_set(metadata_t* meta) {
 		*(meta->frame_height+meta->frame_width+1)
 		*(maxNElements);
 	
-	for (i=0; i < MAX_MSG_SET; i++) {
+	for (i=0; i < maxNumMsg; i++) {
 		cat->msgs[i].size = 0;
 		cat->msgs[i].data = (float*) calloc(maxMsgSize, sizeof(float));
 	}
@@ -55,10 +55,10 @@ msg_set_t* create_message_set(metadata_t* meta) {
 	return cat;
 }
 
-void destroy_message_set(msg_set_t* cat){
+void destroy_message_set(msg_set_t* cat, int maxNumMsg){
 
 	int i;
-	for (i=0; i < MAX_MSG_SET; i++) {
+	for (i=0; i < maxNumMsg; i++) {
 		free(cat->msgs[i].data);
 	}
 	free(cat->msgs);
@@ -113,7 +113,8 @@ int get_file_metadata(FILE* fp, metadata_t* meta) {
  * Loads the next sequence of data objects into the buffer.
  * Returns 1 in case of error and 0 otherwise.
  */
-int load_msg_set(FILE* fp, msg_set_t* buffer, metadata_t* meta, int next) {
+int load_msg_set(FILE* fp, msg_set_t* buffer, metadata_t* meta, int next,
+	int numMsg, int categoryId) {
 	
 	int i, j, final, objSize;
 	float x;
@@ -126,7 +127,7 @@ int load_msg_set(FILE* fp, msg_set_t* buffer, metadata_t* meta, int next) {
 	//set starts empty
 	buffer->n_msgs = 0;
 	
-	final = next + MAX_MSG_SET;
+	final = next + numMsg;
 	
 	while ((next < meta->nObjects) && (next < final)){
 		//size of this single object in floats
@@ -136,6 +137,9 @@ int load_msg_set(FILE* fp, msg_set_t* buffer, metadata_t* meta, int next) {
 		for (j = 0; j < objSize; j++){
 			fscanf(fp,"%f\n", buffer->msgs[buffer->n_msgs].data + j);
 		}
+		buffer->msgs[buffer->n_msgs].size = objSize;
+		buffer->msgs[buffer->n_msgs].index = next;
+		buffer->msgs[buffer->n_msgs].categoryId = categoryId;
 		//updating pointers..
 		next++;
 		buffer->n_msgs++;
@@ -147,7 +151,7 @@ int load_msg_set(FILE* fp, msg_set_t* buffer, metadata_t* meta, int next) {
 
 int create_and_load_metadata(FILE** files, metadata_t** vmdata, int ncat, 
 							 int *maxMsgsPerCat, int numFrames) {
-	int i;
+	/*int i;
 	FILE *fp;
 	char fname[512]; // magic number
 
@@ -157,19 +161,19 @@ int create_and_load_metadata(FILE** files, metadata_t** vmdata, int ncat,
 			return 1;
 		}
 	}
-
+*/
 	return 0;
 }
 
 int load_next_segment(FILE** files, metadata_t** vmdata, segment_t* seg) {
 	int i, next;
-
+/*
 	next = seg->segNum + 1;
 	for (i = 0; i < seg->n_cat; i++) {
 		if (load_msg_set(files[i], &seg->sets[i], vmdata[i], next) == next) {
 			return 1;
 		}
 	}
-
+*/
 	return 0;
 }

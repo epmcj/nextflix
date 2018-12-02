@@ -14,8 +14,6 @@
 //    int msg_size;
 //} cat_metadata_t;
 
-//get 100 msgs from disk each reading
-#define MAX_MSG_SET  100
 #define NUM_CATS     5
 #define NUM_FRAMES   65
 #define MSGS_PER_CAT {5,4,3,2,1}
@@ -36,6 +34,8 @@ typedef struct {
 typedef struct {
     uint32_t size;
     float   *data;
+	int index;//index of this message inside the file
+	int categoryId;//a pedido do Eduardo
 } message_t;
 
 typedef struct {
@@ -63,8 +63,8 @@ void destroy_metadata(metadata_t* meta);
 /**
  * Creates a superscaled set of messages
  */
-msg_set_t* create_message_set(metadata_t* meta);
-void destroy_message_set(msg_set_t* cat);
+msg_set_t* create_message_set(metadata_t* meta, int maxNumMsg);
+void destroy_message_set(msg_set_t* cat, int maxNumMsg);
 
 /**
  * Reads and stores the video metadata in the file fp.
@@ -79,7 +79,8 @@ int get_file_metadata(FILE* fp, metadata_t* meta);
  * Obtain meta using get_file_metadata and initialize
  * next with 0
  */
-int load_msg_set(FILE* fp, msg_set_t* buffer, metadata_t* meta, int next);
+int load_msg_set(FILE* fp, msg_set_t* buffer, metadata_t* meta, int next,
+	int numMsg, int categoryId);
 
 /**
  * 
