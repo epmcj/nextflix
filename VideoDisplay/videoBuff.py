@@ -1,5 +1,6 @@
 import sys
 
+sys.path.insert(0,'../')
 import VideoUtils.structures as st
 import codec as cod
 

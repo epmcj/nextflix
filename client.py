@@ -5,15 +5,22 @@ import random
 import struct
 import VideoDisplay.videoClient as vc
 import VideoDisplay.videoBuff   as vb
+from VideoUtils.structures import Metadata
+from VideoUtils.dataSet    import dataFromFloatArray
+# for python3
 from src.client_py.nxt     import *
 from src.client_py.common  import *
 from src.client_py.olist   import OrderedList
-from VideoUtils.structures import Metadata
-from VideoUtils.dataSet    import dataFromFloatArray
+# for python2.7
+# sys.path.insert(0,'./src/client_py')
+# from nxt     import *
+# from common  import *
+# from olist   import OrderedList
+######################################################################
 
 BUFFER_SIZE     = 8192
-SOCKET_TIMEOUT  = 2.0 # in seconds
-FEEDBACK_PERIOD = 5.0 # in seconds
+SOCKET_TIMEOUT  = 10.0 # in seconds
+FEEDBACK_PERIOD = 10.0 # in seconds
 NEXT_TIMEOUT    = 1.0 # in seconds 
 FLOAT_SIZE      = 4
 
@@ -98,6 +105,7 @@ def receive_and_play(vid, sockt, server):
 
     buff = vb.Buff(10000)
     vc.startDisplayMechanism(framesBeforeStart, receiveWindow, buff, frameRate)
+    print(psutil.virtual_memory())
 
     sockt.sendto(int2bin_l(NxtCode.PLAY_CODE) + int2bin_l(vid), server)
 
@@ -129,7 +137,7 @@ def receive_and_play(vid, sockt, server):
         elif npckt.header.type == NxtType.INIT_TYPE:
             nextSeqNum = npckt.header.seq_num
             ncats      = bin2int_l(npckt.payload)
-            print("First seqNum = {}".format(nextSeqNum), end=", ")
+            # print("First seqNum = {}".format(nextSeqNum), end=", ") # comment for python 2.7
             print("{} categories".format(ncats))
             # return msg to confirm it
             sockt.sendto(msg, server)
@@ -143,7 +151,7 @@ def receive_and_play(vid, sockt, server):
 
             if npckt.header.seq_num < nextSeqNum:
                 # received a duplicate
-                print("Client: duplicated msg received (", end="")
+                # print("Client: duplicated msg received (", end="") # comment for python 2.7
                 print("expected = " + str(nextSeqNum))
                 print("got = " + str(npckt.header.seq_num) + ")")
 
@@ -160,7 +168,7 @@ def receive_and_play(vid, sockt, server):
         # msg was lost
         if time.time() > nextDeadline:
             lostMsgs += 1
-            while True and not waitingList.is_empty():
+            while not waitingList.is_empty():
                 nextSeqNum += 1
                 if nextSeqNum < waitingList.get_min():
                     break
@@ -186,7 +194,6 @@ def receive_and_play(vid, sockt, server):
     buff.finished = True
     while buff.getCode_displayer()!=-1:
         pass
-
 
 
 if len(sys.argv) < 4:

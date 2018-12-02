@@ -35,7 +35,8 @@ def main():
 	
 	#if id does not exists, create it
 	if not Success:
-		Cats = pp.preProcess(videoFile,5,[5,4,3,2,1],[0,0,0,0,0],[1,2,3,4,5],2,1)
+		Cats = pp.preProcess(videoFile,5,[600,480,360,240,120],[0,0,0,0,0],[1,1.2,1.4,1.6,1.8],2,1)
+		# Cats = pp.preProcess(videoFile,5,[5,4,3,2,1],[0,0,0,0,0],[1,2,3,4,5],2,1)
 		print('Saving data...')
 		ds.dump(videoFile,Cats)
 	

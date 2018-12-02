@@ -444,6 +444,7 @@ int send_video(cinfo_t* client, int videoID) {
         printf("New segment loaded (with %d categories).\n", segment.n_cat); // TODO: REMOVER
         // time table round initialization
         for (i = 0; i < ncats; i++) {
+    printf("%d: %d msgs \n", i, segment.sets[i]->n_msgs);
             nextMsg[i]   = 0;
             ttable[i].rt = clock();
             ttable[i].dl = ttable[i].rt + ttable[i].inc;
@@ -470,7 +471,7 @@ int send_video(cinfo_t* client, int videoID) {
                 } else if (currTime > ttable[i].rt) {
                     // can send this message
                     msg = &segment.sets[i]->msgs[nextMsg[i]];
-printf("Will send.\n");
+printf("Will send message at %d of index %d.\n", nextMsg[i], segment.sets[i]->msgs[nextMsg[i]].index);
                     if (send_video_msg(client, msg, &flowInfo, buffer) == 0) {
                         hpsentMsgs += 1;
 printf("msg sent.\n");
@@ -627,7 +628,7 @@ int send_video_list(cinfo_t* client) {
  **/
 int send_video_msg(cinfo_t* c, message_t* msg, flow_t* info, char* buffer) {
     mheader_t hdr;
-    int msize;
+    long int msize;
 
     // header
     hdr.type    = DATA_TYPE;
@@ -638,15 +639,24 @@ int send_video_msg(cinfo_t* c, message_t* msg, flow_t* info, char* buffer) {
 
     msize = 0;
     msize += write_header(&hdr, buffer);
-
+printf("header\n");
+printf("<<%ld size\n", msg->size*sizeof(float));
     // copying data
     memcpy(buffer + msize, &msg->size, sizeof(uint32_t));
+printf("size\n");
+printf("%ld size\n", msize);
     msize += sizeof(uint32_t);
     memcpy(buffer + msize, &msg->categoryId, sizeof(uint32_t));
+printf("cid\n");
+printf("%ld size\n", msize);
     msize += sizeof(uint32_t);
     memcpy(buffer + msize, &msg->index, sizeof(uint32_t));
+printf("index\n");
+printf("%ld size\n", msize);
     msize += sizeof(uint32_t);
+printf("%ld size\n", msg->size*sizeof(float) + msize);
     memcpy(buffer + msize, msg->data, msg->size*sizeof(float));
+printf("data\n");
     msize += msg->size*sizeof(float);
 
     if (sendto(c->data_sockt, buffer, msize, 0, 
