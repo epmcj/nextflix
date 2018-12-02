@@ -9,22 +9,15 @@ import codec as cod
 import dataSet as ds
 
 def main():
-	#image = cv2.imread("../assets/amsterdam.jpg")
-	image = cv2.imread("../assets/tiny.png")
+	image = cv2.imread("../assets/amsterdam.jpg")
+	#image = cv2.imread("../assets/tiny.png")
+	
+	image = image[:,:,0]
 	
 	data = cod.decomposeFrame(image,0)
 	pLen = len(data.channel[0].list[0].P_column)
 	qLen = len(data.channel[0].list[0].Q_line)
 	nElements = len(data.channel[0].list)
-	print('Size of Data: '+str((pLen+qLen+1)*data.totalSize()))
-	
-	ds.dump('testDelete',[[data]])
-	
-	print('back from FloatArray')
-	
-	meta,dataList = ds.load(ds.genFileName('testDelete',0))
-	data = dataList[0]
-	print('Size of Data: '+str((pLen+qLen+1)*data.totalSize()))
 	
 	#only for tests:
 	#data.shuffleData()

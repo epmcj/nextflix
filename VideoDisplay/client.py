@@ -46,9 +46,12 @@ def main():
 		# Cats = pp.preProcess(videoFile,5,[5,4,3,2,1],[0,0,0,0,0],[1,2,3,4,5],2,1)
 		print('Saving data...')
 		ds.dump(videoFile,Cats)
-	
-	#the video buffer
-	buff = vb.Buff(10000, meta.nChannels)
+		
+		#the video buffer
+		buff = vb.Buff(10000, len(Cats[0][0].channel))
+	else:
+		#the video buffer
+		buff = vb.Buff(10000, meta.nChannels)
 	
 	#the messages arrive
 	for cat in Cats:
