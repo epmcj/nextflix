@@ -13,7 +13,6 @@ class Buff:
 	maxSize = 0
 	firstFrame = 0
 	mutexDatas = None
-	mutexFrames = None
 	
 	def __init__(self,maxSize,nChannels):
 		if maxSize==0:
@@ -34,7 +33,6 @@ class Buff:
 		self.dataList.append(st.Data(ChannelList,0))
 		
 		self.mutexDatas = Lock()
-		self.mutexFrames = Lock()
 	
 	#wait until nFrames be ready to display
 	def waitReadyFrames(self, nFrames):
@@ -54,17 +52,21 @@ class Buff:
 	def composeNextFrame(self):
 		code = self.getCode_composer()
 		if code==0 or code==2:
-			#be sure that the list will never be empty
-			if len(self.dataList)==1:
-				ChannelList = []
-				for i in range(self.nChannels):
-					ChannelList.append(st.Channel([]))
-				self.dataList.append(st.Data(ChannelList,self.firstFrame))
+			self.mutexDatas.acquire()
+			try:
+				#be sure that the list will never be empty
+				if len(self.dataList)==1:
+					ChannelList = []
+					for i in range(self.nChannels):
+						ChannelList.append(st.Channel([]))
+					self.dataList.append(st.Data(ChannelList,self.firstFrame))
 			
-			#get the lower-frameNum data
-			data = self.dataList.pop(0)
-			#move the pointer for the next frame
-			self.firstFrame = self.firstFrame+1
+				#get the lower-frameNum data
+				data = self.dataList.pop(0)
+				#move the pointer for the next frame
+				self.firstFrame = self.firstFrame+1
+			finally:
+				self.mutexDatas.release()
 			
 			#recomposes the frame based on the received data
 			success, frame = cod.composeFrame(data)
@@ -74,62 +76,82 @@ class Buff:
 	
 	#codes of interest for the frame displayer
 	def getCode_displayer(self):
-		if self.quit:
-			#the user wants to quit
-			return -1
-		else:
-			if not self.frameList:
-				#there aren't any more frame to show
-				if self.finished and self.dataList[0].isEmpty():
-					#the video is finished
-					return -1
-				else:
-					#some frames are expected to arrive
-					return 1
+		self.mutexDatas.acquire()
+		try:
+			if self.quit:
+				#the user wants to quit
+				ret = -1
 			else:
-				#there are ready frames
-				return 0
+				if not self.frameList:
+					#there aren't any more frame to show
+					if self.finished and self.dataList[0].isEmpty():
+						#the video is finished
+						ret = -1
+					else:
+						#some frames are expected to arrive
+						ret = 1
+				else:
+					#there are ready frames
+					ret = 0
+		finally:
+			self.mutexDatas.release()
+			return ret	
 	
 	#codes of interest for the frame composer
 	def getCode_composer(self):
-		if self.quit:
-			#the user wants to quit
-			return -1
-		else:
-			if self.dataList[0].isEmpty():
-				#there aren't any more frame to compose
-				if self.finished:
-					#the video is finished
-					return -1
-				else:
-					#some frames are expected to arrive
-					return 1
+		self.mutexDatas.acquire()
+		try:
+			if self.quit:
+				#the user wants to quit
+				ret = -1
 			else:
-				#there are ready frames
-				if self.finished:
-					return 2
+				if self.dataList[0].isEmpty():
+					#there aren't any more frame to compose
+					if self.finished:
+						#the video is finished
+						ret = -1
+					else:
+						#some frames are expected to arrive
+						ret = 1
 				else:
-					return 0
+					#there are ready frames
+					if self.finished:
+						ret = 2
+					else:
+						ret = 0
+		finally:
+			self.mutexDatas.release()
+			return ret
 	
 	def write(self,data):
 		#if the buffer has space
 		if not self.isFull():
 			#if the frame still matter
 			if data.frame>=self.firstFrame:
-				lastFrame = self.firstFrame+len(self.dataList)-1
+				self.mutexDatas.acquire()
+				try:
+					lastFrame = self.firstFrame+len(self.dataList)-1
+			
+					#if there is not an initialized structure for this frame
+					if data.frame>lastFrame:
+						#creates the structures for each frame
+						for frameNum in range(lastFrame+1,data.frame):
+							ChannelList = []
+							for i in range(self.nChannels):
+								ChannelList.append(st.Channel([]))
+							self.dataList.append(st.Data(ChannelList,frameNum))
+						self.dataList.append(data)
+						#dataRef is used in order to take insertData out of the critic zone
+						dataRef = None
+					else:
+						#dataRef is used in order to take insertData out of the critic zone
+						dataRef = self.dataList[data.frame-self.firstFrame]
+				finally:
+					self.mutexDatas.release()
 				
-				#if there is not an initialized structure for this frame
-				if data.frame>lastFrame:
-					#creates the structures for each frame
-					for frameNum in range(lastFrame+1,data.frame):
-						ChannelList = []
-						for i in range(self.nChannels):
-							ChannelList.append(st.Channel([]))
-						self.dataList.append(st.Data(ChannelList,frameNum))
-					self.dataList.append(data)
-				else:
+				if dataRef != None:
 					#insert the data in the right place
-					self.dataList[data.frame-self.firstFrame].insertData(data)
+					dataRef.insertData(data)
 	
 	def isFull(self):
 		return (len(self.dataList)==self.maxSize)

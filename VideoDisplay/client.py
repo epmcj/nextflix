@@ -12,10 +12,12 @@ import dataSet as ds
 
 def main():
 	
+	testMode = True #set this value to False if you want to recover data from disk
+	
 	videoFile = '../assets/chaplinCut.mp4'
 	grayScale = True
 	
-	frameRate = 30
+	frameRate = 25
 	#the gap of frames that will be waited each time the video stops.
 	#increase this value for the video to be more fluid
 	framesBeforeStart = 30
@@ -26,12 +28,14 @@ def main():
 	#reading the pre-processed data
 	Cats=[]
 	Success = False
-	for catIndex in range(2):
-		filename = ds.genFileName(videoFile,catIndex)
-		meta, cat = ds.load(filename)
-		if len(cat)>0:
-			Cats.append(cat)
-			Success = True
+	
+	if not testMode:
+		for catIndex in range(2):
+			filename = ds.genFileName(videoFile,catIndex)
+			meta, cat = ds.load(filename)
+			if len(cat)>0:
+				Cats.append(cat)
+				Success = True
 	
 	#if id does not exists, create it
 	if not Success:
@@ -41,11 +45,14 @@ def main():
 		fixed = 1
 		msgPeriods = [180,90]
 		msgSize = [1,2]
-		Cats = pp.preProcess(videoFile,nCats,msgPeriods,msgRedundancies,msgSize,exp,fixed,grayScale)
-		#Cats = pp.preProcess(videoFile,2,[600,480,360,240,120],[0,0,0,0,0],[1,1.2,1.4,1.6,1.8],2,1,grayScale)
+		Cats = pp.preProcess(videoFile,nCats,msgPeriods,\
+			msgRedundancies,msgSize,exp,fixed,grayScale)
+		#Cats = pp.preProcess(videoFile,2,[600,480,360,240,120],[0,0,0,0,0],\
+		#[1,1.2,1.4,1.6,1.8],2,1,grayScale)
 		# Cats = pp.preProcess(videoFile,5,[5,4,3,2,1],[0,0,0,0,0],[1,2,3,4,5],2,1)
-		print('Saving data...')
-		ds.dump(videoFile,Cats)
+		if not testMode:
+			print('Saving data...')
+			ds.dump(videoFile,Cats)
 		
 		#the video buffer
 		buff = vb.Buff(10000, len(Cats[0][0].channel))
