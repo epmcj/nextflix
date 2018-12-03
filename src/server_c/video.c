@@ -15,8 +15,10 @@ metadata_t* create_metadata(uint32_t id, int maxNMsgs, int numFrames){
     meta->nChannels    = 0;
     meta->nObjects 	   = 0;
     
-    meta->nElements = (int*) malloc(numFrames * maxNMsgs * sizeof(int));
-    meta->frameNums = (int*) malloc(numFrames * maxNMsgs * sizeof(int));
+    meta->nElements = (uint8_t*) malloc(numFrames * maxNMsgs * sizeof(uint8_t));
+    meta->frameNums = (uint8_t*) malloc(numFrames * maxNMsgs * sizeof(uint8_t));
+    // meta->nElements = (int*) malloc(numFrames * maxNMsgs * sizeof(int));
+    // meta->frameNums = (int*) malloc(numFrames * maxNMsgs * sizeof(int));
     return meta;
 }
 
@@ -99,11 +101,13 @@ int get_file_metadata(FILE* fp, metadata_t* meta) {
 	for(i=0; i < meta->nObjects; i++){
 	
 		fscanf(fp,"%f\n", &x);
-		meta->frameNums[i] = (int) x;
+		// meta->frameNums[i] = (int) x;
+		meta->frameNums[i] = (uint8_t) x;
 		//printf("%f\n",x);
 		
 		fscanf(fp,"%f\n", &x);
-		meta->nElements[i] = (int) x;
+		// meta->nElements[i] = (int) x;
+		meta->nElements[i] = (uint8_t) x;
 	}
 	
     return 0;
@@ -169,15 +173,17 @@ int load_next_segment(FILE** fps, metadata_t** vmdata, int *msgsCat,
 					  segment_t* seg) {
 	int i, next;
 
-	next = seg->segNum + 1;
+	next =  + 1;
 	for (i = 0; i < seg->n_cat; i++) {
-		if (load_msg_set(fps[i], seg->sets[i], vmdata[i], next, msgsCat[i], i) 
-			== next) {
+		// printf("seg[%d][%d]\n", i, seg->next[i]);
+		next = load_msg_set(fps[i], seg->sets[i], vmdata[i], seg->next[i], 
+							msgsCat[i], i);
+		if(seg->next[i] == next) {
 			printf("Failed to load msg set %d.\n", i);
 			return 1;
 		}
+		seg->next[i] = next;
 	}
-	seg->segNum++;	
 
 	return 0;
 }

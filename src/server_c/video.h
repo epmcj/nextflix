@@ -14,9 +14,10 @@
 //    int msg_size;
 //} cat_metadata_t;
 
-#define NUM_CATS     2
-#define NUM_FRAMES   65
-#define MSGS_PER_CAT {5,4,3,2,1}
+#define NUM_CATS     1
+#define NUM_FRAMES   145
+#define MSGS_PER_CAT {180,90}
+// #define MSGS_PER_CAT {5,4,3,2,1}
 
 typedef struct {
     uint32_t  cat_id; 
@@ -24,8 +25,8 @@ typedef struct {
     uint32_t  frame_width;
     uint32_t  nChannels;
     uint32_t  nObjects;//number of data objects written in the file
-    uint32_t* nElements;//number of elements of each data object in the file
-    uint32_t* frameNums;//frame to which each data object belongs
+    uint8_t* nElements;//number of elements of each data object in the file
+    uint8_t* frameNums;//frame to which each data object belongs
     //int           n_cat;
     //cat_metadata_t* cat;
 //} video_metadata_t;
@@ -48,7 +49,7 @@ typedef struct {
 typedef struct {
    msg_set_t**  sets;
    int         n_cat;
-   int        segNum;
+   int*         next;
 } segment_t;
 
 

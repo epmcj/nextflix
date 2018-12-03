@@ -6,8 +6,8 @@
 
 int main(){
 	int i, old;
-	int maxNMsgs = 5;//number of messages per frame for cat1
-	int numFrames = 65;//for the chosed video
+	int maxNMsgs = 180;//number of messages per frame for cat1
+	int numFrames = 145;//for the chosed video
 	int next = 0;//next object to be loaded
 	int maxNumMsgs = 50;//amount of messages to be loaded at once
 	

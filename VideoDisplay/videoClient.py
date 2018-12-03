@@ -28,24 +28,26 @@ def startDisplayMechanism(framesBeforeStart,receiveWindow,buff,frameRate):
 #producer
 def frameComposer(framesBeforeStart,receiveWindow,buff):
 	print('Opening frame composer')
-	
+	'''
 	#this avoids the use of poor data in the beginning
 	cod = buff.getCode_composer()
 	while len(buff.dataList)<receiveWindow and cod!=2:
 		cod = buff.getCode_composer()
 		if cod==-1:
 			break
-	
+	'''
 	while True:
 		#if the other thread wants to quit
 		cod = buff.getCode_composer()
 		if cod==-1:
 			break
-		
+		'''
 		if len(buff.frameList)<framesBeforeStart:
 			#compose more frames if there are few frames to display
 			buff.composeNextFrame()
-		elif len(buff.dataList)>receiveWindow or cod==2:
+		el
+		'''
+		if len(buff.dataList)>receiveWindow or cod==2:
 			#compose more frames if dataList is too big or there are no
 			#more data to arrive
 			buff.composeNextFrame()
