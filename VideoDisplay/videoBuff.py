@@ -1,3 +1,4 @@
+from threading import Lock
 import sys
 
 sys.path.insert(0,'../')
@@ -11,6 +12,8 @@ class Buff:
 	frameList = []
 	maxSize = 0
 	firstFrame = 0
+	mutexDatas = None
+	mutexFrames = None
 	
 	def __init__(self,maxSize,nChannels):
 		if maxSize==0:
@@ -29,6 +32,9 @@ class Buff:
 		for i in range(self.nChannels):
 			ChannelList.append(st.Channel([]))
 		self.dataList.append(st.Data(ChannelList,0))
+		
+		self.mutexDatas = Lock()
+		self.mutexFrames = Lock()
 	
 	#wait until nFrames be ready to display
 	def waitReadyFrames(self, nFrames):
@@ -48,16 +54,17 @@ class Buff:
 	def composeNextFrame(self):
 		code = self.getCode_composer()
 		if code==0 or code==2:
+			#be sure that the list will never be empty
+			if len(self.dataList)==1:
+				ChannelList = []
+				for i in range(self.nChannels):
+					ChannelList.append(st.Channel([]))
+				self.dataList.append(st.Data(ChannelList,self.firstFrame))
+			
 			#get the lower-frameNum data
 			data = self.dataList.pop(0)
 			#move the pointer for the next frame
 			self.firstFrame = self.firstFrame+1
-			#be sure that the list will never be empty
-			if not self.dataList:
-				ChannelList = []
-				for i in range(self.maxSize):
-					ChannelList.append(st.Channel([]))
-				self.dataList.append(st.Data(ChannelList,self.firstFrame))
 			
 			#recomposes the frame based on the received data
 			success, frame = cod.composeFrame(data)
@@ -116,7 +123,7 @@ class Buff:
 					#creates the structures for each frame
 					for frameNum in range(lastFrame+1,data.frame):
 						ChannelList = []
-						for i in range(self.maxSize):
+						for i in range(self.nChannels):
 							ChannelList.append(st.Channel([]))
 						self.dataList.append(st.Data(ChannelList,frameNum))
 					self.dataList.append(data)
