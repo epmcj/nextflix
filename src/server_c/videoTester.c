@@ -6,8 +6,8 @@
 
 int main(){
 	int i, old;
-	int maxNMsgs = 5;//number of messages per frame for cat1
-	int numFrames = 65;//for the chosed video
+	int maxNMsgs = 180;//number of messages per frame for cat1
+	int numFrames = 145;//for the chosed video
 	int next = 0;//next object to be loaded
 	int maxNumMsgs = 50;//amount of messages to be loaded at once
 	
@@ -22,9 +22,9 @@ int main(){
 	printf("nObj: %d\n", meta->nObjects);
 	
 	for(i=0; i < meta->nObjects; i++){
-		printf("nFrames: %d\n", meta->frameNums[i]);
+		printf("i: %d/%d, ", i, meta->nObjects-1);
+		printf("nFrames: %d, ", meta->frameNums[i]);
 		printf("nElements: %d\n", meta->nElements[i]);
-		printf("\n");
 	}
 	
 	msg_set_t* buffer = create_message_set(meta, maxNumMsgs);

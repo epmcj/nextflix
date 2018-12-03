@@ -39,14 +39,15 @@ msg_set_t* create_message_set(metadata_t* meta, int maxNumMsg) {
 	cat->n_msgs = 0;
 	cat->msgs = (message_t*) malloc(maxNumMsg*sizeof(message_t));
 	
-	for (i = 0; i < meta->nObjects; i++)
-		if(maxNElements < meta->nElements[i])
+	for (i = 0; i < meta->nObjects; i++) {
+		if(maxNElements < meta->nElements[i]) {
 			maxNElements = meta->nElements[i];
+		}
+	}
 	
 	int maxMsgSize = meta->nChannels
 		*(meta->frame_height+meta->frame_width+1)
 		*(maxNElements);
-	
 	for (i=0; i < maxNumMsg; i++) {
 		cat->msgs[i].size = 0;
 		cat->msgs[i].data = (float*) calloc(maxMsgSize, sizeof(float));
