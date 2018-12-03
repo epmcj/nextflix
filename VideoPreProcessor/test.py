@@ -38,7 +38,7 @@ def main():
 	
 	d_msg = 0
 	t_msg = 0
-	data2 = st.Data([st.Channel([]),st.Channel([]),st.Channel([])],0)
+	data2 = st.Data([st.Channel([])],0)
 	for cat in cats:
 		for msg in cat:
 			if random.uniform(0, 1)<=1:#0.9:#10% of msgs lost

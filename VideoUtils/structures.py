@@ -30,6 +30,21 @@ class ChannelElement:
 	def __eq__(self, other):
 		return self.D_value==other.D_value
 	
+	def __lt__(self, other):
+		return self.D_value<other.D_value
+	
+	def __le__(self, other):
+		return self.D_value<=other.D_value
+	
+	def __ne__(self, other):
+		return self.D_value!=other.D_value
+	
+	def __gt__(self, other):
+		return self.D_value>other.D_value
+	
+	def __ge__(self, other):
+		return self.D_value>=other.D_value
+	
 	#height,width of a frame
 	def dim(self):
 		height = len(self.P_column)
