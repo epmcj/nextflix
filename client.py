@@ -18,7 +18,7 @@ from src.client_py.olist   import OrderedList
 # from olist   import OrderedList
 ######################################################################
 
-BUFFER_SIZE     = 8192
+BUFFER_SIZE     = 100000
 SOCKET_TIMEOUT  = 10.0 # in seconds
 FEEDBACK_PERIOD = 10.0 # in seconds
 NEXT_TIMEOUT    = 1.0 # in seconds 
@@ -38,6 +38,7 @@ class Category:
                                     frameNums, nElmts)
     
     def __init__(self, byteArray):
+        print("ba size= {}".format(len(byteArray)))
         self.id          = bin2int_l(byteArray[0:4])         
         self.frameHeight = bin2int_l(byteArray[4:8])
         self.frameWidth  = bin2int_l(byteArray[8:12])
@@ -45,17 +46,16 @@ class Category:
         self.nObjs       = bin2int_l(byteArray[16:20])
         # the remaining of the array is composed by two arrays of same length
         fieldSize = int((len(byteArray) - (5 * 4)) / 2)
-        print("fsize = {}".format(fieldSize/4))
         b = 20
         self.nElmts = []
-        for i in range(int(fieldSize/4)): # 4 bytes for each entry
-            bi = b + i * 4
-            self.nElmts.append(bin2int_l(byteArray[bi:bi+4])) 
+        for i in range(int(fieldSize/1)): # 4 bytes for each entry
+            bi = b + i * 1
+            self.nElmts.append(bin2int_l(byteArray[bi:bi+1]+b'\x00\x00\x00')) 
         b = b + fieldSize
         self.frameNums = []
-        for i in range(int(fieldSize/4)): # 4 bytes for each entry
-            bi = b + i * 4
-            self.frameNums.append(bin2int_l(byteArray[bi:bi+4])) 
+        for i in range(int(fieldSize/1)): # 4 bytes for each entry
+            bi = b + i * 1
+            self.frameNums.append(bin2int_l(byteArray[bi:bi+1]+b'\x00\x00\x00')) 
         self.metadata = Metadata(self.frameHeight, self.frameWidth, 
                                  self.nChannels, self.frameNums, self.nElmts)
 
@@ -63,7 +63,7 @@ def decode_data_payload(payload):
     size  = bin2int_l(payload[0:4])
     cat   = bin2int_l(payload[4:8])
     index = bin2int_l(payload[8:12])
-    fmt = "<{0:d}f".format(int(size/FLOAT_SIZE))
+    fmt = "<{0:d}f".format(size)
     data = struct.unpack_from(fmt, payload[12:])
     return size, cat, index, data
 
@@ -90,22 +90,22 @@ def print_video_list(vlist):
 def receive_and_play(vid, sockt, server):
     nextSeqNum   = 0
     lostMsgs     = 0
+    rcvdMsgs     = 0 # for data msgs only
     fbDeadline   = time.time() + FEEDBACK_PERIOD
     nextDeadline = 0
     waitingList  = OrderedList(unique=True)
     catInfo      = {}
     ncats        = 0
-    frameRate = 30
+    frameRate = 20
     #the gap of frames that will be waited each time the video stops.
     #increase this value for the video to be more fluid
-    framesBeforeStart = 30
+    framesBeforeStart = 72
     #The maximum number of objects that can wait for new data
     #increase this value if you want a better quality 
     receiveWindow = 30
 
-    buff = vb.Buff(10000)
+    buff = vb.Buff(10000,1)
     vc.startDisplayMechanism(framesBeforeStart, receiveWindow, buff, frameRate)
-    print(psutil.virtual_memory())
 
     sockt.sendto(int2bin_l(NxtCode.PLAY_CODE) + int2bin_l(vid), server)
 
@@ -120,12 +120,14 @@ def receive_and_play(vid, sockt, server):
 
         if npckt.header.type == NxtType.FIN_TYPE:
             # ending routine
+            print("Client: received {} msgs".format(rcvdMsgs))
             break
         
         elif npckt.header.type == NxtType.CTRL_TYPE:
             # LOST OF MESSAGES ARE A PROBLEM HERE !!
             cat = Category(npckt.payload)
             catInfo[cat.id] = cat
+            # print("adding cat")
             # print("id = {}".format(cat.id))
             # print("frameHeight = {}".format(cat.frameHeight))
             # print("frameWidth = {}".format(cat.frameWidth))
@@ -137,21 +139,19 @@ def receive_and_play(vid, sockt, server):
         elif npckt.header.type == NxtType.INIT_TYPE:
             nextSeqNum = npckt.header.seq_num
             ncats      = bin2int_l(npckt.payload)
-            # print("First seqNum = {}".format(nextSeqNum), end=", ") # comment for python 2.7
             print("{} categories".format(ncats))
             # return msg to confirm it
             sockt.sendto(msg, server)
 
         elif npckt.header.type == NxtType.DATA_TYPE:
-            print("Client: received a msg ({})".format(npckt.header.seq_num))
+            rcvdMsgs += 1
             # decoding payload
-            _, cat, index, data = decode_data_payload
-            buff.write(dataFromFloatArray(data, catInfo[cat], index))
-            print("{}:{}".format((cat, index)))
+            _, cat, index, data = decode_data_payload(npckt.payload)
+            buff.write(dataFromFloatArray(data, catInfo[cat].metadata, index))
 
             if npckt.header.seq_num < nextSeqNum:
                 # received a duplicate
-                # print("Client: duplicated msg received (", end="") # comment for python 2.7
+                print("Client: duplicated msg received (", end="")
                 print("expected = " + str(nextSeqNum))
                 print("got = " + str(npckt.header.seq_num) + ")")
 
@@ -189,7 +189,7 @@ def receive_and_play(vid, sockt, server):
             sockt.sendto(msg, server)
             # reset variables for next period
             lostMsgs = 0
-
+    
     # finishing
     buff.finished = True
     while buff.getCode_displayer()!=-1:

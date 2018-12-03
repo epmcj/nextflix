@@ -1,3 +1,4 @@
+from threading import Lock
 import sys
 
 sys.path.insert(0,'../')
@@ -10,7 +11,7 @@ class Buff:
 	dataList = []
 	frameList = []
 	maxSize = 0
-	firstFrame = 0
+	mutexDatas = None
 	
 	def __init__(self,maxSize,nChannels):
 		if maxSize==0:
@@ -29,6 +30,8 @@ class Buff:
 		for i in range(self.nChannels):
 			ChannelList.append(st.Channel([]))
 		self.dataList.append(st.Data(ChannelList,0))
+		
+		self.mutexDatas = Lock()
 	
 	#wait until nFrames be ready to display
 	def waitReadyFrames(self, nFrames):
@@ -48,17 +51,21 @@ class Buff:
 	def composeNextFrame(self):
 		code = self.getCode_composer()
 		if code==0 or code==2:
-			#get the lower-frameNum data
-			data = self.dataList.pop(0)
-			#move the pointer for the next frame
-			self.firstFrame = self.firstFrame+1
-			#be sure that the list will never be empty
-			if not self.dataList:
-				ChannelList = []
-				for i in range(self.maxSize):
-					ChannelList.append(st.Channel([]))
-				self.dataList.append(st.Data(ChannelList,self.firstFrame))
-			
+			self.mutexDatas.acquire()
+			try:
+				#get the lower-frameNum data
+				data = self.dataList.pop(0)
+				#be sure that the list will never be empty
+				if not self.dataList:
+					ChannelList = []
+					for i in range(self.nChannels):
+						ChannelList.append(st.Channel([]))
+					self.dataList.append(st.Data(ChannelList,data.frame+1))
+			except:
+				print('Error: Composition')
+			finally:
+				self.mutexDatas.release()
+			print('Data {} composed'.format(data.frame))
 			#recomposes the frame based on the received data
 			success, frame = cod.composeFrame(data)
 			
@@ -67,66 +74,82 @@ class Buff:
 	
 	#codes of interest for the frame displayer
 	def getCode_displayer(self):
-		if self.quit:
-			#the user wants to quit
-			return -1
-		else:
-			if not self.frameList:
-				#there aren't any more frame to show
-				if self.finished and self.dataList[0].isEmpty():
-					#the video is finished
-					return -1
-				else:
-					#some frames are expected to arrive
-					return 1
+		self.mutexDatas.acquire()
+		try:
+			if self.quit:
+				#the user wants to quit
+				ret = -1
 			else:
-				#there are ready frames
-				return 0
+				if not self.frameList:
+					#there aren't any more frame to show
+					if self.finished and (self.dataList[0].isEmpty() and len(self.dataList) == 1):
+						#the video is finished
+						print("d-1 :fmlen = {}".format(len(self.frameList)))
+						ret = -1
+					else:
+						#some frames are expected to arrive
+						ret = 1
+				else:
+					#there are ready frames
+					ret = 0
+		finally:
+			self.mutexDatas.release()
+			return ret	
 	
 	#codes of interest for the frame composer
 	def getCode_composer(self):
-		if self.quit:
-			#the user wants to quit
-			return -1
-		else:
-			if self.dataList[0].isEmpty():
-				#there aren't any more frame to compose
-				if self.finished:
-					#the video is finished
-					return -1
-				else:
-					#some frames are expected to arrive
-					return 1
+		self.mutexDatas.acquire()
+		try:
+			if self.quit:
+				#the user wants to quit
+				ret = -1
 			else:
-				#there are ready frames
-				if self.finished:
-					return 2
+				if (self.dataList[0].isEmpty() and len(self.dataList) == 1):
+					#there aren't any more frame to compose
+					if self.finished:
+						#the video is finished
+						print("c-1 :dllen = {}".format(len(self.dataList)))
+						ret = -1
+					else:
+						#some frames are expected to arrive
+						ret = 1
 				else:
-					return 0
+					#there are ready frames
+					if self.finished:
+						ret = 2
+					else:
+						ret = 0
+		finally:
+			self.mutexDatas.release()
+			return ret
 	
 	def write(self,data):
 		#if the buffer has space
 		if not self.isFull():
 			#if the frame still matter
-			if data.frame>=self.firstFrame:
-				lastFrame = self.firstFrame+len(self.dataList)-1
-				
-				#if there is not an initialized structure for this frame
-				if data.frame>lastFrame:
-					#creates the structures for each frame
-					for frameNum in range(lastFrame+1,data.frame):
-						ChannelList = []
-						for i in range(self.maxSize):
-							ChannelList.append(st.Channel([]))
-						self.dataList.append(st.Data(ChannelList,frameNum))
-					self.dataList.append(data)
-				else:
-					#insert the data in the right place
-					self.dataList[data.frame-self.firstFrame].insertData(data)
-	
+			if data.frame>=self.dataList[0].frame:
+				self.mutexDatas.acquire()
+				try:
+					lastFrame = self.dataList[-1].frame
+					#if there is not an initialized structure for this frame
+					if data.frame>lastFrame:
+						#creates the structures for each frame
+						for frameNum in range(lastFrame+1,data.frame):
+							ChannelList = [st.Channel([]) for i in range(self.nChannels)]
+							self.dataList.append(st.Data(ChannelList,frameNum))
+						self.dataList.append(data)
+					else:
+						#insert the data in the right place
+						firstFrame = self.dataList[0].frame
+						self.dataList[data.frame-firstFrame].insertData(data)
+				finally:
+					self.mutexDatas.release()
+		
+		print(len(self.dataList))
+
 	def isFull(self):
 		return (len(self.dataList)==self.maxSize)
 	
 	def isEmpty_d(self):
-		return self.dataList[0].isEmpty()
+		return (self.dataList[0].isEmpty() and len(self.dataList) == 1)
 

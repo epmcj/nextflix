@@ -1,3 +1,3 @@
 2
-234;How to Get Away with a Murderer S05E03;assets/htgawmS05e03.mp4
-123;Avengers 3 Trailer;assets/sample2.mp4_%d.nextflix
+123;Funny Video;assets/sample2.mp4_%d.nextflix
+345;Chaplin;assets/chaplinCut.mp4_%d.nextflix

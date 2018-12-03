@@ -18,7 +18,7 @@
 
 #define MAX_CONNECTIONS 5
 #define MAX_TRY         3
-#define HYPER_PERIOD    4 // seconds
+#define HYPER_PERIOD    1 // seconds
 #define HP_DECREASE     10/100 // 10 %
 #define HP_INCREASE     50/100 // 50 %
 #define TIMEOUT_S       60
